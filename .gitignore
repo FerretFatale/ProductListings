@@ -7,6 +7,9 @@ Productlisting.csv
 #Ignore CSV file containing 
 SKU_Checklist.csv
 
+#Ignore CSV cile containing product catalog
+Product_Catalog.csv
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
