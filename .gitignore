@@ -1,5 +1,6 @@
 # Ignore API key file
 api_key_file.py
+api_key_variable.py
 
 # Ignore CSV file containing product listings
 Productlisting.csv
