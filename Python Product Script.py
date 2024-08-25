@@ -1,3 +1,5 @@
+"""must pip install requests once"""
+
 import openai
 import pandas as pd
 import csv
@@ -5,38 +7,36 @@ import logging
 from datetime import datetime
 import os
 
-# Load the products_catalog CSV file
-csv_file_path = "/mnt/data/Product_Catalog.csv"  # Replace with your actual file path
-df = pd.read_csv(csv_file_path)
-
-# Convert to JSON
-json_output = df.to_json(orient='records', lines=True)
-
-# Save to a JSON file
-with open("/mnt/data/Product_Catalog.json", "w") as json_file:
-    json_file.write(json_output)
-
-print("Conversion completed! JSON saved as 'Product_Catalog.json'.")
-
-# Load the products_exclude CSV file
-csv_file_path = "/mnt/data/Product_Catalog.csv"  # Replace with your actual file path
-df = pd.read_csv(csv_file_path)
-
-# Convert to JSON
-json_output = df.to_json(orient='records', lines=True)
-
-# Save to a JSON file
-with open("/mnt/data/Product_Catalog.json", "w") as json_file:
-    json_file.write(json_output)
-
-print("Conversion completed! JSON saved as 'Product_Catalog.json'.")
-
-
-
-
-
-
-
+# Define marketing personality
+marketingPersonality = (
+    "You are a Marketing Genius creating product listings for The Dookery, a website dedicated to providing high-quality ferret-related products. "
+    "Your focus is on emphasizing the usefulness and comfort of these products for ferrets and ferret lovers. Your tone is honest, authentic, super friendly, and trustworthy. "
+    "You always apply the best standards for marketing to all output you create and use all of the most modern methods in your practices. "
+    "You always emphasize the luxuriousness and quality of product sets. You spell out the obvious to avoid assumptions of buyer knowledge, and use emojis to enhance your text readability."
+    "Product Categories include the following: Adventure (For Ferrets) includes sub-categories such as Adventure Gift Baskets (For Ferrets), Adventure Learn (For Humans), Adventure Subscription (For Ferrets), "
+    "Carry Bags & Cages (For Ferrets), Digital Devices (For Ferrets) which further includes GPS Trackers (For Ferrets), Travel Bedding (For Ferrets), and Travel Food & Water Bowls (For Ferrets). "
+    "Essentials (For Ferrets) encompasses Bedding & Blankets (For Ferrets), Cages (For Ferrets), Essentials Gift Baskets (For Ferrets), Essentials Learn (For Humans), Essentials Subscription (For Ferrets), "
+    "Food (For Ferrets), Food & Water Bowls (For Ferrets), Grooming Tools (For Ferrets), and Litter Trays (For Ferrets). "
+    "Lifestyle (For Ferrets) (For Humans) includes Access Steps (For Ferrets), Apparel & Accessories (For Humans) (For Ferrets) with sub-categories like Bracelets (For Humans), Costumes (For Humans) which includes Ferret Costumes (For Ferrets) and Human Costumes (For Humans), "
+    "Earrings (For Humans), Hairpieces (For Humans), Hoodies (For Humans), Necklaces (For Humans), Onesies (For Humans), Rings (For Humans), Socks (For Humans), and Tops (For Humans), "
+    "Digital Devices (For Ferrets) with sub-categories such as Food & Water Bowls (For Ferrets), Grooming Tools (For Ferrets), Litter Trays (For Ferrets), and Pet Cameras (For Ferrets), "
+    "Homeware (For Humans) which includes Art Prints (For Humans), Calendars (For Humans), Cushions & Bedding (For Humans), Custom Ferret Portrait (For Humans), Keychains (For Humans), Phone Cases (For Humans), "
+    "Plates & Mugs (For Humans), Stationary (For Humans) which includes Diaries & Notebooks (For Humans), Pens (For Humans), and Stickers (For Humans), Wall Decals (For Humans), "
+    "Lifestyle Gift Baskets (For Humans), Lifestyle Learn (For Humans), and Lifestyle Subscription (For Humans). "
+    "Play & Train (For Ferrets) comprises Ferret Training Guides (For Humans), Play & Train Gift Baskets (For Ferrets), Play & Train Learn (For Humans), Play & Train Subscription (For Ferrets) (For Humans), "
+    "Play Pens (For Ferrets), Toys (For Ferrets), Training Aids & Other Tools (For Ferrets) which includes Books & Others Resources (For Humans), Clickers (For Ferrets), Collars (For Ferrets), Harnesses (For Ferrets), Leashes (For Ferrets), and Treats (For Ferrets), "
+    "and Workshops & Others Courses (For Humans). Uncategorized is also available for products that do not fit into the other categories."
+    "Unique Selling Points: The Dookery is a centralized platform catering to the specific needs of ferret owners and lovers, it offers a range of ferret-themed goods and necessities, "
+    "ensuring a comprehensive and trusted marketplace for quality and safe products, and it strives to be more than a marketplace by providing educational resources, vet contacts, classes, and grants, converting it into a community hub for learning, interaction, and collaboration towards better ferret care."
+    "Target Audience: Individuals who own or are interested in owning ferrets, typically aged between 25 and 45, with an annual income of $50,000-$100,000. "
+    "These customers are willing to spend on high-quality products and services, averaging $100-$200 monthly on supplies and $500-$1000 annually on veterinary care, "
+    "and/or They are active in the pet community and on social media platforms like Facebook and Instagram, sharing their passion for ferrets."
+    "Tone and Brand Voice: Friendly, authentic, trustworthy, sweet, kind, and hopeful, Emphasize luxuriousness and quality in product sets, Use emojis to enhance text readability."
+    "Scientific Accuracy and Real-World Usage: follow academic standards for scientific accuracy, citing academic knowledge or offering it with caution, Describe real-world usage scenarios, "
+    "considering ferret-specific safety standards and needs, and any potential impacts on other pets or children in the household. Your advice is scientifically accurate, describes real-world usage scenarios, "
+    "considers ferret-specific safety standards and needs, and considers any potential impacts on any pet or child in the household from product usage."
+    "Key Messages: We're here to help and we want your feedback. This is about us serving you to the best of our abilities, so tell us how to do that. Be kind to yourself and your ferrets. You all deserve the best life."
+)
 # Define the category map
 category_map = {
     "leash": ["For Ferrets", "Play & Train > Training Aids & Other Tools > Leashes"],
@@ -208,8 +208,7 @@ complementary_map = {
     "Workshops & Others Courses": ["Ferret Training Guides", "Essentials Learn", "Lifestyle Learn"]
 }
 
-
-# Generate a filename with the current datetime
+# Generate a filename with the current datetime for script logging
 log_filename = datetime.now().strftime("automation_%Y-%m-%d_%H-%M-%S.log")
 
 # Check if the log file already exists; if not, create it
@@ -220,21 +219,186 @@ if not os.path.exists(log_filename):
 logging.basicConfig(filename=log_filename, level=logging.INFO,
                     format='%(asctime)s:%(levelname)s:%(message)s')
 
-# Commence logging
+# Commence Product Listing script logging
 currentDateTime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 logging.info(f"Script started at {currentDateTime}.")
 
-# Set OpenAI API key
+# Upload OPEN AI Variables
 try:
-    logging.info("Setting OpenAI API key...")
-    import api_key_file
-    openai.api_key = api_key_file.API_KEY_VARIABLE
+    logging.info("Setting OpenAI Variables...")
+    import api_key_variable
+    #OpenAI Variable
+    openai.api_key = api_key_variable.API_KEY_VARIABLE
+    ORGANIZATION_ID = api_key_variable.ORGANIZATION_ID
+    PROJECT_ID = apy_key_variable.PROJECT_ID
+    Assistant_ID = api_key_variable.Assistant_ID
     currentDateTime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    logging.info(f"Successfully set Open AI API key at {currentDateTime}")
+    logging.info(f"Successfully set Open AI variables at {currentDateTime}")
 except Exception as e:
     currentDateTime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    logging.error(f"Failed to import API key file at {currentDateTime}: {str(e)}")
+    logging.error(f"Failed to set OpenAI variables at {currentDateTime}: {str(e)}")
     raise
+"""do I need the following inserted in the above passage?"""
+url = https://api.openai.com/v1/assistants/{Assistant_ID} \
+
+headers = {
+    "Content-Type": "application/json",
+    "Authorization": f"Bearer {API_KEY_VARIABLE}",
+    "OpenAI-Beta": "assistants=v2",
+    "OpenAI-Organization": "{ORGANIZATION_ID}",
+    "OpenAI-Project": PROJECT_ID
+}
+
+response = requests.get(url, headers=headers)
+
+"""finish this to associate id with the assistant on open ai"""
+#RETRIEVE ASSISTANT 
+from openai import OpenAI
+client = OpenAI()
+
+my_assistant = client.beta.assistants.retrieve("asst_abc123")
+print(my_assistant)
+
+"""finish off checking on assistant by retrieving it's details at the start of the process"""
+# print to logs at start of work
+#RETRIEVE ASSISTANT 
+from openai import OpenAI
+client = OpenAI()
+
+my_assistant = client.beta.assistants.retrieve("{Assistant_ID}")
+print(my_assistant)
+
+
+
+
+"""# Load the products_catalog CSV file
+try:
+    logging.info("Loading the products_catalog CSV...")
+    df = pd.read_csv('products_catalog.csv', encoding='utf-8')
+    currentDateTime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    logging.info(f"Successfully loaded products_catalog CSV file at {currentDateTime}")
+except Exception as e:
+    currentDateTime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    logging.error(f"Failed to load products_catalog CSV file at {currentDateTime}: {str(e)}")
+    raise
+
+# Convert the products_catalog to JSON
+try:
+    logging.info("Converting products_catalog to JSON...")
+    json_output = df.to_json(orient='records', lines=True)
+    currentDateTime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    logging.info(f"Successfully converted products_catalog to JSON at {currentDateTime}")
+except Exception as e:
+    currentDateTime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    logging.error(f"Failed to convert products_catalog to JSON at {currentDateTime}: {str(e)}")
+    raise
+
+# Save the products_catalog to a JSON file
+try:
+    logging.info("Converting products_catalog to JSON...")
+    with open("/mnt/data/Product_Catalog.json", "w") as json_file:
+        json_file.write(json_output)
+        currentDateTime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        logging.info(f"Successfully saved products_catalog to JSON at {currentDateTime}")
+except Exception as e:
+    currentDateTime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    logging.error(f"Failed to save products_catalog to JSON at {currentDateTime}: {str(e)}")
+    raise"""
+
+# Load the SKU_checklist CSV file 
+try:
+    logging.info("Loading the SKU_Checklist CSV...")
+    df = pd.read_csv('SKU_Checklist.csv', encoding='utf-8')
+    currentDateTime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    logging.info(f"Successfully loaded SKU_Checklist CSV file at {currentDateTime}")
+except Exception as e:
+    currentDateTime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    logging.error(f"Failed to load SKU_Checklist CSV file at {currentDateTime}: {str(e)}")
+    raise
+
+# Convert SKU_checklist to JSON
+try:
+    logging.info("Converting SKU_Checklist to JSON...")
+    json_output = df.to_json(orient='records', lines=True)
+    currentDateTime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    logging.info(f"Successfully converted SKU_Checklist to JSON at {currentDateTime}")
+except Exception as e:
+    currentDateTime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    logging.error(f"Failed to convert SKU_Checklist to JSON at {currentDateTime}: {str(e)}")
+    raise
+
+# Save SKU_checklist to a JSON file
+try:
+    logging.info("Converting products_catalog to JSON...")
+    with open("/mnt/data/Product_Catalog.json", "w") as json_file:
+        json_file.write(json_output)
+        currentDateTime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        logging.info(f"Successfully saved products_catalog to JSON at {currentDateTime}")
+except Exception as e:
+    currentDateTime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    logging.error(f"Failed to save products_catalog to JSON at {currentDateTime}: {str(e)}")
+    raise
+
+# Upload JSON files to OpenAI Assistant
+Vector upload instructions
+
+
+"""
+# Create a vector store called "Financial Statements"
+vector_store = client.beta.vector_stores.create(name="Financial Statements")
+ 
+# Ready the files for upload to OpenAI
+file_paths = ["edgar/goog-10k.pdf", "edgar/brka-10k.txt"]
+file_streams = [open(path, "rb") for path in file_paths]
+
+a sku library of products
+	added to OpenAI Assistant as context 
+	product_catalog
+        
+        #Create a vector store and add files;
+vector_store = client.beta.vector_stores.create(
+  name="Product Documentation",
+  file_ids=['file_1', 'file_2', 'file_3', 'file_4', 'file_5']
+)
+Adding files to vector stores is an async operation. To ensure the operation is complete, we recommend that you use the 'create and poll' helpers in our official SDKs. If you're not using the SDKs, you can retrieve the vector_store object and monitor it's file_counts property to see the result of the file ingestion operation.
+Files can also be added to a vector store after it's created by creating vector store files.
+
+#Attaching a vector store to your assistant 
+assistant = client.beta.assistants.create(
+  instructions="You are a helpful product support assistant and you answer questions based on the files provided to you.",
+  model="gpt-4o",
+  tools=[{"type": "file_search"}],
+  tool_resources={
+    "file_search": {
+      "vector_store_ids": ["vs_1"]
+    }
+  }
+)
+
+thread = client.beta.threads.create(
+  messages=[ { "role": "user", "content": "How do I cancel my subscription?"} ],
+  tool_resources={
+    "file_search": {
+      "vector_store_ids": ["vs_2"]
+    }
+  }
+)
+
+        
+        """
+#update the assistant to use new vector store 
+assistant = client.beta.assistants.update(
+  assistant_id=assistant.id,
+  tool_resources={"file_search": {"vector_store_ids": [vector_store.id]}},
+)
+
+
+
+
+
+# Create function for verifing if a product listing should be generated or not 
+"""python to check json"""
+
 
 # Load the CSV file containing product listings using the pandas module
 try:
@@ -259,36 +423,7 @@ except Exception as e:
     logging.error(f"Failed to open CSV file at {currentDateTime}: {str(e)}")
     raise
 
-# Define marketing personality for consistent style and tone
-marketingPersonality = (
-    "You are a Marketing Genius creating product listings for The Dookery, a website dedicated to providing high-quality ferret-related products. "
-    "Your focus is on emphasizing the usefulness and comfort of these products for ferrets and ferret lovers. Your tone is honest, authentic, super friendly, and trustworthy. "
-    "You always apply the best standards for marketing to all output you create and use all of the most modern methods in your practices. "
-    "You always emphasize the luxuriousness and quality of product sets. You spell out the obvious to avoid assumptions of buyer knowledge, and use emojis to enhance your text readability."
-    "Product Categories include the following: Adventure (For Ferrets) includes sub-categories such as Adventure Gift Baskets (For Ferrets), Adventure Learn (For Humans), Adventure Subscription (For Ferrets), "
-    "Carry Bags & Cages (For Ferrets), Digital Devices (For Ferrets) which further includes GPS Trackers (For Ferrets), Travel Bedding (For Ferrets), and Travel Food & Water Bowls (For Ferrets). "
-    "Essentials (For Ferrets) encompasses Bedding & Blankets (For Ferrets), Cages (For Ferrets), Essentials Gift Baskets (For Ferrets), Essentials Learn (For Humans), Essentials Subscription (For Ferrets), "
-    "Food (For Ferrets), Food & Water Bowls (For Ferrets), Grooming Tools (For Ferrets), and Litter Trays (For Ferrets). "
-    "Lifestyle (For Ferrets) (For Humans) includes Access Steps (For Ferrets), Apparel & Accessories (For Humans) (For Ferrets) with sub-categories like Bracelets (For Humans), Costumes (For Humans) which includes Ferret Costumes (For Ferrets) and Human Costumes (For Humans), "
-    "Earrings (For Humans), Hairpieces (For Humans), Hoodies (For Humans), Necklaces (For Humans), Onesies (For Humans), Rings (For Humans), Socks (For Humans), and Tops (For Humans), "
-    "Digital Devices (For Ferrets) with sub-categories such as Food & Water Bowls (For Ferrets), Grooming Tools (For Ferrets), Litter Trays (For Ferrets), and Pet Cameras (For Ferrets), "
-    "Homeware (For Humans) which includes Art Prints (For Humans), Calendars (For Humans), Cushions & Bedding (For Humans), Custom Ferret Portrait (For Humans), Keychains (For Humans), Phone Cases (For Humans), "
-    "Plates & Mugs (For Humans), Stationary (For Humans) which includes Diaries & Notebooks (For Humans), Pens (For Humans), and Stickers (For Humans), Wall Decals (For Humans), "
-    "Lifestyle Gift Baskets (For Humans), Lifestyle Learn (For Humans), and Lifestyle Subscription (For Humans). "
-    "Play & Train (For Ferrets) comprises Ferret Training Guides (For Humans), Play & Train Gift Baskets (For Ferrets), Play & Train Learn (For Humans), Play & Train Subscription (For Ferrets) (For Humans), "
-    "Play Pens (For Ferrets), Toys (For Ferrets), Training Aids & Other Tools (For Ferrets) which includes Books & Others Resources (For Humans), Clickers (For Ferrets), Collars (For Ferrets), Harnesses (For Ferrets), Leashes (For Ferrets), and Treats (For Ferrets), "
-    "and Workshops & Others Courses (For Humans). Uncategorized is also available for products that do not fit into the other categories."
-    "Unique Selling Points: The Dookery is a centralized platform catering to the specific needs of ferret owners and lovers, it offers a range of ferret-themed goods and necessities, "
-    "ensuring a comprehensive and trusted marketplace for quality and safe products, and it strives to be more than a marketplace by providing educational resources, vet contacts, classes, and grants, converting it into a community hub for learning, interaction, and collaboration towards better ferret care."
-    "Target Audience: Individuals who own or are interested in owning ferrets, typically aged between 25 and 45, with an annual income of $50,000-$100,000. "
-    "These customers are willing to spend on high-quality products and services, averaging $100-$200 monthly on supplies and $500-$1000 annually on veterinary care, "
-    "and/or They are active in the pet community and on social media platforms like Facebook and Instagram, sharing their passion for ferrets."
-    "Tone and Brand Voice: Friendly, authentic, trustworthy, sweet, kind, and hopeful, Emphasize luxuriousness and quality in product sets, Use emojis to enhance text readability."
-    "Scientific Accuracy and Real-World Usage: follow academic standards for scientific accuracy, citing academic knowledge or offering it with caution, Describe real-world usage scenarios, "
-    "considering ferret-specific safety standards and needs, and any potential impacts on other pets or children in the household. Your advice is scientifically accurate, describes real-world usage scenarios, "
-    "considers ferret-specific safety standards and needs, and considers any potential impacts on any pet or child in the household from product usage."
-    "Key Messages: We're here to help and we want your feedback. This is about us serving you to the best of our abilities, so tell us how to do that. Be kind to yourself and your ferrets. You all deserve the best life."
-)
+
 
 # Get the total number of products in the DataFrame
 dfLength = len(df)
@@ -316,6 +451,66 @@ def getChatCompletions(requestMessageContent):
         currentDateTime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         logging.error(f"Failed to generate completion at {currentDateTime}: {str(e)}")
         raise
+"""Relevant?
+#SETUP STREAM CHAT
+with client.beta.threads.runs.stream(
+  thread_id=thread.id,
+  assistant_id=assistant.id,
+  instructions="Please address the user as Jane Doe. The user has a premium account.",
+  event_handler=EventHandler(),
+) as stream:
+  stream.until_done()
+"""
+"""
+#CREATE A RUN 
+https://platform.openai.com/docs/api-reference/runs/createRun
+"""
+"""all vector stores from this point should be saved to the thread and logged
+#attach a file to a message thread instead
+# Upload the user provided file to OpenAI
+message_file = client.files.create(
+  file=open("edgar/aapl-10k.pdf", "rb"), purpose="assistants"
+)
+ 
+# Create a thread and attach the file to the message
+thread = client.beta.threads.create(
+  messages=[
+    {
+      "role": "user",
+      "content": "How many shares of AAPL were outstanding at the end of of October 2023?",
+      # Attach the new file to the message.
+      "attachments": [
+        { "file_id": message_file.id, "tools": [{"type": "file_search"}] }
+      ],
+    }
+  ]
+)
+ 
+# The thread now has a vector store with that file in its tool resources.
+print(thread.tool_resources.file_search)"""
+"""#Test file search is working properly: Your new assistant will query both attached vector stores (one containing goog-10k.pdf and brka-10k.txt, and the other containing aapl-10k.pdf) and return this result from aapl-10k.pdf
+# Use the create and poll SDK helper to create a run and poll the status of
+# the run until it's in a terminal state.
+
+run = client.beta.threads.runs.create_and_poll(
+    thread_id=thread.id, assistant_id=assistant.id
+)
+
+messages = list(client.beta.threads.messages.list(thread_id=thread.id, run_id=run.id))
+
+message_content = messages[0].content[0].text
+annotations = message_content.annotations
+citations = []
+for index, annotation in enumerate(annotations):
+    message_content.value = message_content.value.replace(annotation.text, f"[{index}]")
+    if file_citation := getattr(annotation, "file_citation", None):
+        cited_file = client.files.retrieve(file_citation.file_id)
+        citations.append(f"[{index}] {cited_file.filename}")
+
+print(message_content.value)
+print("\n".join(citations))
+
+"""
 
 # Loop through each row in the DataFrame to process product listings
 for index, product in enumerate(productListingFile.readlines()):
@@ -367,7 +562,39 @@ for index, product in enumerate(productListingFile.readlines()):
         continue
 
     count += 1  # Increment the count for the next iteration
+"""Modify the above with:
+#create a thread (that will run from variable to last variation for each SKU) then another new thread
+thread = client.beta.threads.create()
 
+thread should open with the first variable then close with the last variant offered (use productType)
+
+#add a message to the thread
+message = client.beta.threads.messages.create(
+  thread_id=thread.id,
+  role="user",
+  content="I need to solve the equation `3x + 11 = 14`. Can you help me?"
+)
+
+Next: Create a Run
+Once all the user Messages have been added to the Thread, you can Run the Thread with any Assistant. Creating a Run uses the model and tools associated with the Assistant to generate a response. These responses are added to the Thread as assistant Messages.
+
+#create a run
+run = client.beta.threads.runs.create_and_poll(
+  thread_id=thread.id,
+  assistant_id=assistant.id,
+  instructions="Please address the user as Jane Doe. The user has a premium account."
+)
+
+#list the messages
+if run.status == 'completed': 
+  messages = client.beta.threads.messages.list(
+    thread_id=thread.id
+  )
+  print(messages)
+else:
+  print(run.status)
+
+"""
     # Generate a product name with specific formatting requirements, using the function
     try:
         logging.info("Generating product name...")
@@ -842,6 +1069,39 @@ except Exception as e:
         currentDateTime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         logging.error(f"Failed to update published status for {productName} at {currentDateTime}: {str(e)}")
         continue
+
+# Image Functions
+"""
+#Editing image files
+https://platform.openai.com/docs/api-reference/authentication
+
+#upload image files
+https://platform.openai.com/docs/api-reference/files/create\
+
+Marketing image manipulation (maybe through modular mind?): back ground removal, ferret themed, drm
+	Index your existing ferret media library and create logs of existing usage
+
+
+"""
+
+
+
+
+
+
+"""#List messages in the thread
+get https://api.openai.com/v1/threads/{thread_id}/messages
+
+Returns a list of messages for a given thread.
+
+from openai import OpenAI
+client = OpenAI()
+
+thread_messages = client.beta.threads.messages.list("thread_abc123")
+print(thread_messages.data)
+
+
+"""
 
 # Generate Suggested Price Point 
 Add profit to price
