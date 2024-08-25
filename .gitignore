@@ -1,3 +1,12 @@
+# Ignore API key file
+api_key_file.py
+
+# Ignore CSV file containing product listings
+Productlisting.csv
+
+#Ignore CSV file containing 
+SKU_Checklist.csv
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
