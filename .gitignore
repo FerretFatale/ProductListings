@@ -1,6 +1,7 @@
 # Ignore API key file
 api_key_file.py
 api_key_variable.py
+OPENAI_API_KEY.py
 dookery.py
 
 # Ignore CSV file containing product listings
