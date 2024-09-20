@@ -22,6 +22,10 @@ productlisting_file_path = r"C:\\Users\\LittleChickpea\\Downloads\\Productlistin
 productlistingjson_file_path = r"C:\\Users\\LittleChickpea\\Downloads\\Productlisting.json"
 threaddf_file_path = r"C:\\Users\\LittleChickpea\\Downloads\\thread_library.csv"
 
+# Convert attributes_map to a JSON-formatted string
+attributes_map = r"C:\\Users\\LittleChickpea\\Downloads\\attributes_map.json"
+attributes_map = json.dumps(attributes_map, indent=2)
+
 # Initialize a lock for threading safety
 threaddf_lock = threading.Lock()
 prodf_lock = threading.Lock()
@@ -479,11 +483,15 @@ def threading_logic(productSKU, parent_sku, df, client):
             with logging_lock: 
                 logging.info(f"Created new thread for Product SKU {productSKU} using Parent SKU {parent_sku}: {thread_id}")
 
-            
-            # Update Threaddf with new information
-            new_entry = pd.DataFrame({'productSKU': [productSKU], 'parent_sku': [parent_sku], 'thread_id': [thread_id]})
+            # Update Threaddf with new parent information
+            new_entry = pd.DataFrame({'parent_sku': [parent_sku], 'thread_id': [thread_id]})
             with threaddf_lock:
                 df = pd.concat([df, new_entry], ignore_index=True)
+                
+            # Update Threaddf with new product information
+            new_entry = pd.DataFrame({'productSKU': [productSKU], 'thread_id': [thread_id]})
+            with threaddf_lock:
+                df = pd.concat([df, new_entry], ignore_index=True)            
             
             print(f"\n Updated ThreadDF for thread ID: {thread_id}") 
             with logging_lock:
@@ -1203,6 +1211,8 @@ def main(skudf_file_path, skujson_file_path, productlisting_file_path, threaddf_
                     updatedataframe(prodf, count, 'Tags', resultProductTags, productlisting_file_path)                    
                     
                     # Generate Product Attributes with specific formatting requirements, using the getChatCompletions function
+                    resultProductAttributes = None
+                    
                     try:
                         logging.info("Generating Attributes...")
                         print("Generating Attributes...")
@@ -1264,8 +1274,8 @@ def main(skudf_file_path, skujson_file_path, productlisting_file_path, threaddf_
                             "the item. You will be given any existing information and must strongly consider it for inclusion in the "
                             "output you create. The output should be a JSON object with the keys: AttributeOneName, AttributeOneDesc, "
                             "AttributeTwoName, AttributeTwoDesc, AttributeThreeName, AttributeThreeDesc."
-                            "\nYour response should be only the JSON object, and no additional text."
-                            "\nExample JSON format:"
+                            "\n Your response should be only the JSON object, and no additional text."
+                            "\n Example JSON format:"
                             "{\n"
                             "  \"AttributeOneName\": \"Color\",\n"
                             "  \"AttributeOneDesc\": \"Blue\",\n"
@@ -1274,11 +1284,11 @@ def main(skudf_file_path, skujson_file_path, productlisting_file_path, threaddf_
                             "  \"AttributeThreeName\": \"Material\",\n"
                             "  \"AttributeThreeDesc\": \"Cotton\"\n"
                             "}"
-                            f"\nExisting product data: {productAttributes}"
-                            f"\nExisting parent product data: {{'AttributeOneName': '{parentAttributeOneName}', 'AttributeOneDesc': '{parentAttributeOneDesc}', "
+                            f"\n Existing product data: {productAttributes}"
+                            f"\n Existing parent product data: {{'AttributeOneName': '{parentAttributeOneName}', 'AttributeOneDesc': '{parentAttributeOneDesc}', "
                             f"'AttributeTwoName': '{parentAttributeTwoName}', 'AttributeTwoDesc': '{parentAttributeTwoDesc}', "
                             f"'AttributeThreeName': '{parentAttributeThreeName}', 'AttributeThreeDesc': '{parentAttributeThreeDesc}'}}."
-                            f"\nAttributes Map: {attributes_map}"
+                            f"\n Attributes Map: {attributes_map}"
                         )                        
                         
                         # Child Product Request
@@ -1289,8 +1299,8 @@ def main(skudf_file_path, skujson_file_path, productlisting_file_path, threaddf_
                             "the item. You will be given any existing information and must strongly consider it for inclusion in the "
                             "output you create. The output should be a JSON object with the keys: AttributeOneName, AttributeOneDesc, "
                             "AttributeTwoName, AttributeTwoDesc, AttributeThreeName, AttributeThreeDesc."
-                            "\nYour response should be only the JSON object, and no additional text."
-                            "\nExample JSON format:"
+                            "\n Your response should be only the JSON object, and no additional text."
+                            "\n Example JSON format:"
                             "{\n"
                             "  \"AttributeOneName\": \"Color\",\n"
                             "  \"AttributeOneDesc\": \"Blue\",\n"
@@ -1299,11 +1309,11 @@ def main(skudf_file_path, skujson_file_path, productlisting_file_path, threaddf_
                             "  \"AttributeThreeName\": \"Material\",\n"
                             "  \"AttributeThreeDesc\": \"Cotton\"\n"
                             "}"
-                            f"\nExisting product data: {productAttributes}"
-                            f"\nExisting parent product data: {{'AttributeOneName': '{parentAttributeOneName}', 'AttributeOneDesc': '{parentAttributeOneDesc}', "
+                            f"\n Existing product data: {productAttributes}"
+                            f"\n Existing parent product data: {{'AttributeOneName': '{parentAttributeOneName}', 'AttributeOneDesc': '{parentAttributeOneDesc}', "
                             f"'AttributeTwoName': '{parentAttributeTwoName}', 'AttributeTwoDesc': '{parentAttributeTwoDesc}', "
                             f"'AttributeThreeName': '{parentAttributeThreeName}', 'AttributeThreeDesc': '{parentAttributeThreeDesc}'}}."
-                            f"\nAttributes Map: {attributes_map}"
+                            f"\n Attributes Map: {attributes_map}"
                         )                        
                                            
                         logging.info("Setting Parent and Child Product responses.")
@@ -1372,7 +1382,7 @@ def main(skudf_file_path, skujson_file_path, productlisting_file_path, threaddf_
                         logging.info(f"Successfully generated attributes for {productName} at {currentDateTime}")
                         print(f"Successfully generated attributes for {productName} at {currentDateTime}")
                 
-                        # Log the recommended updates to the attributes_map
+                        # Log the recommended updates to the Productlistings.csv
                         attribute_names = [
                             (productAttributeOneName, productAttributeOneDesc),
                             (productAttributeTwoName, productAttributeTwoDesc),
@@ -1428,7 +1438,7 @@ if __name__ == '__main__':
         marketing_personality=dookery.marketing_personality,
         category_map=dookery.category_map,
         tag_map=dookery.tag_map,
-        attributes_map=dookery.attributes_map,
+        attributes_map=attributes_map,
         # complementary_map=dookery.complementary_map
         logging=logging,
         logging_lock=logging_lock,
@@ -1438,8 +1448,20 @@ if __name__ == '__main__':
 
 
 
-#################### SCRAP CODE TO CLEAN ############################
 
+#################### SCRAP CODE TO CLEAN ############################
+#################### SCRAP CODE TO CLEAN ############################
+    #################### SCRAP CODE TO CLEAN ############################
+    #################### SCRAP CODE TO CLEAN ############################
+    #################### SCRAP CODE TO CLEAN ############################
+    #################### SCRAP CODE TO CLEAN ############################
+    #################### SCRAP CODE TO CLEAN ############################
+    #################### SCRAP CODE TO CLEAN ############################
+    #################### SCRAP CODE TO CLEAN ############################
+    #################### SCRAP CODE TO CLEAN ############################
+    #################### SCRAP CODE TO CLEAN ############################
+    #################### SCRAP CODE TO CLEAN ############################
+    #################### SCRAP CODE TO CLEAN ############################
 import openai
 import pandas as pd
 import csv
