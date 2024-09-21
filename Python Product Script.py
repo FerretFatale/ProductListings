@@ -1,5 +1,3 @@
-"""must pip install requests once"""
-
 import logging
 import openai
 import pandas as pd
@@ -84,7 +82,7 @@ tools = [
 
 """********************************FUNCTIONS*************************************************************"""
 # Initilise OPENAI 
-def initialize_client():
+def initialize_client(openai_api_key):
     from openai import OpenAI
     # local_client = openai.OpenAI()
     with api_call_lock:
@@ -118,29 +116,316 @@ def updatedataframe(prodf, count, entryName, entryResult, productlisting_file_pa
         with logging_lock:
             logging.error(f"Failed to save CSV at {currentDateTime}: {str(e)}")
 
-# Function to check marketing personality variable against the Marketing Personality attached to the assistant and update if there's a discrepancy
+# Function to find or confirm height of the product         
+def find_or_confirm_height(openai_api_key, productHeight, productName, productSKU, parent_sku, thread_id, m_assistant_id, client):
+    try:
+        logging.info(f"Assessing height for product: {productName}")
+
+        # Check if height is already present and valid
+        if pd.notnull(productHeight) and productHeight > 0 and 0.5 < productHeight < 300:  # Adding a reasonable range check
+            logging.info(f"Height is already present for {productName} in the CSV: {productHeight} cm.")
+            return productHeight
+        else:
+            logging.info(f"Height not present or invalid for {productName}. Querying OpenAI for height assessment...")
+
+            # AI prompts
+            responseParentProduct = f"""
+                Based on our ongoing discussion, determine the height of this product. 
+                If the height is in inches, convert it to centimeters.
+                Provide only the height value in numeric format (in cm).
+            """
+
+            responseChildProduct = f"""
+                Considering this product is a variation of the parent product, and based on the ongoing discussion, determine the height of the product SKU ({productSKU}).
+                If the height is mentioned in inches, convert it to centimeters.
+                Provide only the height value in numeric format (in cm).
+            """
+
+            # Call the getChatCompletions function to get the height using OpenAI
+            resultProductHeight = getChatCompletions(
+                openai_api_key, None, productSKU, parent_sku, responseParentProduct, responseChildProduct, thread_id, m_assistant_id, client
+            )
+
+            # Log the successful OpenAI query
+            currentDateTime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+            logging.info(f"Generated height for {productName} at {currentDateTime}: {resultProductHeight}")
+            print(f"Generated height for {productName}: {resultProductHeight}\n")
+
+            # Validate the result from OpenAI
+            try:
+                height_value = float(resultProductHeight)
+                if 0.5 < height_value < 300:  # Ensure the height is within a reasonable range
+                    logging.info(f"Valid height found for {productName}: {height_value} cm.")
+                    return height_value
+                else:
+                    logging.error(f"Invalid height value returned by OpenAI for {productName}: {height_value}")
+                    return None
+            except ValueError:
+                logging.error(f"Failed to convert OpenAI response to a valid number for {productName}. Response: {resultProductHeight}")
+                return None
+
+    except Exception as e:
+        currentDateTime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        logging.error(f"Failed to find or confirm height for {productName} at {currentDateTime}: {str(e)}")
+        print(f"Failed to find or confirm height for {productName} at {currentDateTime}: {str(e)}")
+        return None
+
+# Function to find or confirm Length of the product 
+def find_or_confirm_length(openai_api_key, productLength, productName, productSKU, parent_sku, thread_id, m_assistant_id, client):
+    try:
+        logging.info(f"Assessing length for product: {productName}")
+
+        # Check if length is already present and valid
+        if pd.notnull(productLength) and productLength > 0 and 0.5 < productLength < 500:  # Adding a reasonable range check
+            logging.info(f"Length is already present for {productName} in the CSV: {productLength} cm.")
+            return productLength
+        else:
+            logging.info(f"Length not present or invalid for {productName}. Querying OpenAI for length assessment...")
+
+            # AI prompts
+            responseParentProduct = f"""
+                Based on our ongoing discussion, determine the length of this product. 
+                If the length is in inches, convert it to centimeters.
+                Provide only the length value in numeric format (in cm).
+            """
+
+            responseChildProduct = f"""
+                Considering this product is a variation of the parent product, and based on the ongoing discussion, determine the length of the product SKU ({productSKU}).
+                If the length is mentioned in inches, convert it to centimeters.
+                Provide only the length value in numeric format (in cm).
+            """
+
+            # Call the getChatCompletions function to get the length using OpenAI
+            resultProductLength = getChatCompletions(
+                openai_api_key, None, productSKU, parent_sku, responseParentProduct, responseChildProduct, thread_id, m_assistant_id, client
+            )
+
+            # Log the successful OpenAI query
+            currentDateTime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+            logging.info(f"Generated length for {productName} at {currentDateTime}: {resultProductLength}")
+            print(f"Generated length for {productName}: {resultProductLength}\n")
+
+            # Validate the result from OpenAI
+            try:
+                length_value = float(resultProductLength)
+                if 0.5 < length_value < 500:  # Ensure the length is within a reasonable range
+                    logging.info(f"Valid length found for {productName}: {length_value} cm.")
+                    return length_value
+                else:
+                    logging.error(f"Invalid length value returned by OpenAI for {productName}: {length_value}")
+                    return None
+            except ValueError:
+                logging.error(f"Failed to convert OpenAI response to a valid number for {productName}. Response: {resultProductLength}")
+                return None
+
+    except Exception as e:
+        currentDateTime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        logging.error(f"Failed to find or confirm length for {productName} at {currentDateTime}: {str(e)}")
+        print(f"Failed to find or confirm length for {productName} at {currentDateTime}: {str(e)}")
+        return None
+
+# Function to find or confirm Width of the product
+def find_or_confirm_width(openai_api_key, productWidth, productName, productSKU, parent_sku, thread_id, m_assistant_id, client):
+    try:
+        logging.info(f"Assessing width for product: {productName}")
+
+        # Check if width is already present and valid
+        if pd.notnull(productWidth) and productWidth > 0 and 0.5 < productWidth < 500:  # Adding a reasonable range check
+            logging.info(f"Width is already present for {productName} in the CSV: {productWidth} cm.")
+            return productWidth
+        else:
+            logging.info(f"Width not present or invalid for {productName}. Querying OpenAI for width assessment...")
+
+            # AI prompt
+            responseParentProduct = f"""
+                Based on our ongoing discussion, determine the width of this product. 
+                If the width is in inches, convert it to centimeters.
+                Provide only the width value in numeric format (in cm).
+            """
+
+            responseChildProduct = f"""
+                Considering this product is a variation of the parent product, and based on the ongoing discussion, determine the width of the product SKU ({productSKU}).
+                If the width is mentioned in inches, convert it to centimeters.
+                Provide only the width value in numeric format (in cm).
+            """
+
+            # Call the getChatCompletions function to get the width using OpenAI
+            resultProductWidth = getChatCompletions(
+                openai_api_key, None, productSKU, parent_sku, responseParentProduct, responseChildProduct, thread_id, m_assistant_id, client
+            )
+
+            # Log the successful OpenAI query
+            currentDateTime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+            logging.info(f"Generated width for {productName} at {currentDateTime}: {resultProductWidth}")
+            print(f"Generated width for {productName}: {resultProductWidth}\n")
+
+            # Validate the result from OpenAI
+            try:
+                width_value = float(resultProductWidth)
+                if 0.5 < width_value < 500:  # Ensure the width is within a reasonable range
+                    logging.info(f"Valid width found for {productName}: {width_value} cm.")
+                    return width_value
+                else:
+                    logging.error(f"Invalid width value returned by OpenAI for {productName}: {width_value}")
+                    return None
+            except ValueError:
+                logging.error(f"Failed to convert OpenAI response to a valid number for {productName}. Response: {resultProductWidth}")
+                return None
+
+    except Exception as e:
+        currentDateTime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        logging.error(f"Failed to find or confirm width for {productName} at {currentDateTime}: {str(e)}")
+        print(f"Failed to find or confirm width for {productName} at {currentDateTime}: {str(e)}")
+        return None
+
+# Function to find or confirm Weight of the product
+def find_or_confirm_weight(openai_api_key, productWeight, productName, productSKU, parent_sku, productHeight, productWidth, productLength, thread_id, m_assistant_id, client):
+    try:
+        logging.info(f"Assessing weight for product: {productName}")
+
+        # Check if weight is already present and valid
+        if pd.notnull(productWeight) and productWeight > 0 and 0.05 < productWeight < 500:  # Adding a reasonable range check for weight in kg
+            logging.info(f"Weight is already present for {productName} in the CSV: {productWeight} kg.")
+            return productWeight
+        else:
+            logging.info(f"Weight not present or invalid for {productName}. Querying OpenAI for weight assessment...")
+
+            # Custom prompt to either provide weight or calculate from dimensions
+            responseParentProduct = f"""
+                Determine the weight of the product from the information you've already been provided. 
+                Focus on the Description and Existing_Data in Attributes for leads.
+                
+                Provide only the weight value in kg. Value must be converted to kilograms. 
+                Ensure the weight is specific to the product variant contained in the product listing. 
+                Return in string format.
+
+                If weight metric is otherwise unavailable, determine approximate weight by calculating the object's volume 
+                using the Height ({productHeight} cm), Width ({productWidth} cm), and Length ({productLength} cm).
+            """
+
+            responseChildProduct = f"""
+                Considering this product is a variation of the parent product, determine the weight of the product SKU ({productSKU}).
+                Focus on the Description and Existing_Data in Attributes for leads.
+                
+                Provide only the weight value in kg. Value must be converted to kilograms. 
+                Ensure the weight is specific to the product variant contained in the product listing.
+                Return in string format.
+
+                If weight metric is otherwise unavailable, determine approximate weight by calculating the object's volume 
+                using the Height ({productHeight} cm), Width ({productWidth} cm), and Length ({productLength} cm).
+            """
+
+            # Call the getChatCompletions function to get the weight using OpenAI
+            resultProductWeight = getChatCompletions(
+                openai_api_key, None, productSKU, parent_sku, responseParentProduct, responseChildProduct, thread_id, m_assistant_id, client
+            )
+
+            # Log the successful OpenAI query
+            currentDateTime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+            logging.info(f"Generated weight for {productName} at {currentDateTime}: {resultProductWeight}")
+            print(f"Generated weight for {productName}: {resultProductWeight}\n")
+
+            # Validate the result from OpenAI
+            try:
+                weight_value = float(resultProductWeight)
+                if 0.05 < weight_value < 500:  # Ensure the weight is within a reasonable range
+                    logging.info(f"Valid weight found for {productName}: {weight_value} kg.")
+                    return weight_value
+                else:
+                    logging.error(f"Invalid weight value returned by OpenAI for {productName}: {weight_value}")
+                    return None
+            except ValueError:
+                logging.error(f"Failed to convert OpenAI response to a valid number for {productName}. Response: {resultProductWeight}")
+                return None
+
+    except Exception as e:
+        currentDateTime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        logging.error(f"Failed to find or confirm weight for {productName} at {currentDateTime}: {str(e)}")
+        print(f"Failed to find or confirm weight for {productName} at {currentDateTime}: {str(e)}")
+        return None
+
+def write_purchase_note(openai_api_key, resultName, resultProductSDescription, resultProductLDescription, productName, productSKU, parent_sku, thread_id, m_assistant_id, client):
+    try:
+        logging.info(f"Updating purchase note for {productName}...")
+
+        # Craft the response for generating a purchase note via OpenAI
+        responseParentProduct = f"""
+            Craft a Purchase Note for the buyer of this product. The Purchase Note can be used for various purposes, such as providing additional information about the product, offering instructions for using the product, sharing a thank you message or a link to download digital products, and giving details about how the customer can contact The Dookery for support or further inquiries (by email admin@dookery.com). 
+            
+            If the product includes special instructions, download links, or personalized messages that should be conveyed to the buyer post-purchase, the Purchase Note field is a convenient place to include that information. Apply a rational mind and be sparse in what information you offer here. It needs to be specific to the exact variant being purchased. A customer may purchase multiple items and does not need to see identical thank you messages after every purchase. 
+            
+            If you have nothing useful to add here, leave this field blank.
+
+            Product Name: {resultName}
+            Short Description: {resultProductSDescription}
+            Long Description: {resultProductLDescription}
+        """
+
+        responseChildProduct = f"""
+            Since this product is a variation of the parent product, write a Purchase Note specific to the product SKU ({productSKU}). Consider any special instructions, download links, or personalized messages that should be conveyed to the buyer post-purchase. If you have nothing useful to add here, leave this field blank.
+
+            Product Name: {resultName}
+            Short Description: {resultProductSDescription}
+            Long Description: {resultProductLDescription}
+        """
+
+        # Call getChatCompletions function to get the purchase note
+        resultPurchaseNote = getChatCompletions(
+            openai_api_key, None, productSKU, parent_sku, responseParentProduct, responseChildProduct, thread_id, m_assistant_id, client
+        )
+
+        # Log and print the result of the OpenAI call
+        print(f"{resultPurchaseNote}\n\n")
+        currentDateTime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        logging.info(f"Successfully generated Purchase Note for {productName} at {currentDateTime}")
+        
+        return resultPurchaseNote
+
+    except Exception as e:
+        # Log the failure in generating the Purchase Note
+        currentDateTime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        logging.error(f"Failed to generate Purchase Note for {productName} at {currentDateTime}: {str(e)}")
+        print(f"Failed to generate Purchase Note for {productName} at {currentDateTime}: {str(e)}")
+        return None
+
+# Extract parent product information for additional context in the API request
+def get_attribute_or_unknown(sku, column_name):
+    value = extractedparentinfo(sku, column_name, prodf)
+    if pd.isna(value) or value == '':
+        return "Unknown"
+    return value 
+
+
+
+
+
+# Function to check and update marketing personality
 def check_and_update_marketing_personality(m_assistant_id, marketing_personality, client):
     try:
         # Retrieve the current marketing personality from the assistant
         with api_call_lock:
             assistant_details = client.beta.assistants.retrieve(m_assistant_id)
-            current_personality = assistant_details.metadata.get("marketing_personality", None)
+            current_personality = assistant_details.metadata.get("marketing_personality", "").strip()
 
-        with logging_lock:
-            logging.info(f"\n def check_and_update_marketing_personality: Assistant Details: {assistant_details}")
         print(f"\n def check_and_update_marketing_personality: Assistant Details: {assistant_details}")
+        with logging_lock:
+            logging.info(f"Assistant Details: {assistant_details}")
+        
+        # Ensure that both personalities are stripped of extra whitespace and are lowercase for comparison
+        marketing_personality_cleaned = marketing_personality.strip().lower()
+        current_personality_cleaned = current_personality.lower()
 
         # Check if the current personality matches the predefined one
-        if current_personality != marketing_personality:
+        if current_personality_cleaned != marketing_personality_cleaned:
             print("Discrepancy found in marketing personality. Updating assistant...")
             with api_call_lock:
                 updated_assistant = client.beta.assistants.update(
                     m_assistant_id,
-                    instructions=marketing_personality,
+                    instructions={"marketing_personality": marketing_personality_cleaned},
                 )
             print("Marketing personality updated successfully.")
             with logging_lock:
-                logging.error(f"{marketing_personality}")
+                logging.info(f"Updated marketing personality to: {marketing_personality_cleaned}")
         else:
             print("Marketing personality is up-to-date.")
     except Exception as e:
@@ -150,6 +435,193 @@ def check_and_update_marketing_personality(m_assistant_id, marketing_personality
         print(f"Failed to check or update marketing personality at {currentDateTime}: {str(e)}")
         raise
  
+ # Function to generate Attributes
+ def generate_product_attributes(openai_api_key, productSKU, parent_sku, thread_id, m_assistant_id, client, prodf, count, productlisting_file_path, attributes_map, logging):
+    try:
+        logging.info("Generating Attributes...")
+        print("Generating Attributes...")
+
+        # Gather existing data from the product fields
+        productAttributes = {
+            "AttributeOneName": productAttributeOneName if productAttributeOneName else "Unknown",
+            "AttributeOneDesc": productAttributeOneDesc if productAttributeOneDesc else "Details not available",
+            "AttributeTwoName": productAttributeTwoName if productAttributeTwoName else "Unknown",
+            "AttributeTwoDesc": productAttributeTwoDesc if productAttributeTwoDesc else "Details not available",
+            "AttributeThreeName": productAttributeThreeName if productAttributeThreeName else "Unknown",
+            "AttributeThreeDesc": productAttributeThreeDesc if productAttributeThreeDesc else "Details not available"
+        }
+
+        # Handle None or empty values in productAttributes
+        for key, value in productAttributes.items():
+            if pd.isna(value) or value == '':
+                productAttributes[key] = "N/A"
+
+        # Set xxx variable to productAttributes
+        xxx = productAttributes
+        logging.info(f"Current productAttributes: {xxx}")
+        print(f"Current productAttributes: {xxx}")
+                        
+        parentAttributeOneName = get_attribute_or_unknown(parent_sku, 'Attribute 1 name')
+        parentAttributeOneDesc = get_attribute_or_unknown(parent_sku, 'Attribute 1 value(s)')
+        parentAttributeTwoName = get_attribute_or_unknown(parent_sku, 'Attribute 2 name')
+        parentAttributeTwoDesc = get_attribute_or_unknown(parent_sku, 'Attribute 2 value(s)')
+        parentAttributeThreeName = get_attribute_or_unknown(parent_sku, 'Attribute 3 name')
+        parentAttributeThreeDesc = get_attribute_or_unknown(parent_sku, 'Attribute 3 value(s)')
+
+        # Log extractions
+        logging.info(
+            f"Setting parent dataframe information: PARENT PRODUCT ATTRIBUTES: "
+            f"{parentAttributeOneName}, {parentAttributeOneDesc}, "
+            f"{parentAttributeTwoName}, {parentAttributeTwoDesc}, "
+            f"{parentAttributeThreeName}, {parentAttributeThreeDesc}"
+        )
+        print(
+            f"Setting parent dataframe information: PARENT PRODUCT ATTRIBUTES: "
+            f"{parentAttributeOneName}, {parentAttributeOneDesc}, "
+            f"{parentAttributeTwoName}, {parentAttributeTwoDesc}, "
+            f"{parentAttributeThreeName}, {parentAttributeThreeDesc}"
+        )
+
+        # Parent Product Request
+        responseParentProduct = (
+            "Use any and all relevant information to assess the 3 most relevant and useful product attributes "
+            "(Name and Description) from the available attributes shown in the attributes_map, existing information, "
+            "and your own best assessment of the product. You are to choose the 3 best attributes available to represent "
+            "the item. You will be given any existing information and must strongly consider it for inclusion in the "
+            "output you create. The output should be a JSON object with the keys: AttributeOneName, AttributeOneDesc, "
+            "AttributeTwoName, AttributeTwoDesc, AttributeThreeName, AttributeThreeDesc."
+            "\n Your response should be only the JSON object, and no additional text."
+            "\n Example JSON format:"
+            "{\n"
+            "  \"AttributeOneName\": \"Color\",\n"
+            "  \"AttributeOneDesc\": \"Blue\",\n"
+            "  \"AttributeTwoName\": \"Size\",\n"
+            "  \"AttributeTwoDesc\": \"Medium\",\n"
+            "  \"AttributeThreeName\": \"Material\",\n"
+            "  \"AttributeThreeDesc\": \"Cotton\"\n"
+            "}"
+            f"\n Existing product data: {productAttributes}"
+            f"\n Existing parent product data: {{'AttributeOneName': '{parentAttributeOneName}', 'AttributeOneDesc': '{parentAttributeOneDesc}', "
+            f"'AttributeTwoName': '{parentAttributeTwoName}', 'AttributeTwoDesc': '{parentAttributeTwoDesc}', "
+            f"'AttributeThreeName': '{parentAttributeThreeName}', 'AttributeThreeDesc': '{parentAttributeThreeDesc}'}}."
+            f"\n Attributes Map: {attributes_map}"
+        )
+
+        # Child Product Request
+        responseChildProduct = (
+            "Remembering that this product is a variation of the parent product, use any and all relevant information to assess the 3 most relevant and useful product attributes "
+            "(Name and Description) from the available attributes shown in the attributes_map, existing information, "
+            "and your own best assessment of the product. You are to choose the 3 best attributes available to represent "
+            "the item. You will be given any existing information and must strongly consider it for inclusion in the "
+            "output you create. The output should be a JSON object with the keys: AttributeOneName, AttributeOneDesc, "
+            "AttributeTwoName, AttributeTwoDesc, AttributeThreeName, AttributeThreeDesc."
+            "\n Your response should be only the JSON object, and no additional text."
+            "\n Example JSON format:"
+            "{\n"
+            "  \"AttributeOneName\": \"Color\",\n"
+            "  \"AttributeOneDesc\": \"Blue\",\n"
+            "  \"AttributeTwoName\": \"Size\",\n"
+            "  \"AttributeTwoDesc\": \"Medium\",\n"
+            "  \"AttributeThreeName\": \"Material\",\n"
+            "  \"AttributeThreeDesc\": \"Cotton\"\n"
+            "}"
+            f"\n Existing product data: {productAttributes}"
+            f"\n Existing parent product data: {{'AttributeOneName': '{parentAttributeOneName}', 'AttributeOneDesc': '{parentAttributeOneDesc}', "
+            f"'AttributeTwoName': '{parentAttributeTwoName}', 'AttributeTwoDesc': '{parentAttributeTwoDesc}', "
+            f"'AttributeThreeName': '{parentAttributeThreeName}', 'AttributeThreeDesc': '{parentAttributeThreeDesc}'}}."
+            f"\n Attributes Map: {attributes_map}"
+        )
+
+        logging.info("Setting Parent and Child Product responses.")
+        print("Setting Parent and Child Product responses.")
+
+        # Call getChatCompletions function to get AI-generated attributes
+        resultProductAttributes = getChatCompletions(
+            openai_api_key, xxx, productSKU, parent_sku, responseParentProduct, responseChildProduct, thread_id, m_assistant_id, client
+        )
+
+        if not resultProductAttributes:
+            raise ValueError("AI response is empty")
+
+        # Log the AI response
+        logging.info(f"AI Response for Attributes: {resultProductAttributes}")
+        print(f"AI Response for Attributes: {resultProductAttributes}")
+
+        # Parse the AI response (extract JSON)
+        try:
+            json_pattern = re.compile(r'\{.*\}', re.DOTALL)
+            # Use regular expression to find the JSON object in the response
+            json_pattern = re.compile(r'\{.*\}', re.DOTALL)
+            match = json_pattern.search(resultProductAttributes)
+            if match:
+                json_str = match.group(0)
+                resultAttributes = json.loads(json_str)
+                logging.info("Successfully extracted and parsed AI response into JSON.")
+                print("Successfully extracted and parsed AI response into JSON.")
+            else:
+                logging.error("No JSON object found in AI response.")
+                print("No JSON object found in AI response.")
+                raise ValueError("No JSON object found in AI response.")
+        except json.JSONDecodeError as e:
+            logging.error(f"Failed to parse AI response as JSON: {e}")
+            print(f"Failed to parse AI response as JSON: {e}")
+            raise
+                           
+        # Assign the AI-generated attributes to the relevant fields
+        productAttributeOneName = resultAttributes.get("AttributeOneName", productAttributeOneName)
+        productAttributeOneDesc = resultAttributes.get("AttributeOneDesc", productAttributeOneDesc)
+        productAttributeTwoName = resultAttributes.get("AttributeTwoName", productAttributeTwoName)
+        productAttributeTwoDesc = resultAttributes.get("AttributeTwoDesc", productAttributeTwoDesc)
+        productAttributeThreeName = resultAttributes.get("AttributeThreeName", productAttributeThreeName)
+        productAttributeThreeDesc = resultAttributes.get("AttributeThreeDesc", productAttributeThreeDesc)
+
+        # Update the DataFrame with the new attributes
+        with prodf_lock:
+            prodf.loc[count, 'Attribute 1 name'] = productAttributeOneName
+            prodf.loc[count, 'Attribute 1 value(s)'] = productAttributeOneDesc
+            prodf.loc[count, 'Attribute 2 name'] = productAttributeTwoName
+            prodf.loc[count, 'Attribute 2 value(s)'] = productAttributeTwoDesc
+            prodf.loc[count, 'Attribute 3 name'] = productAttributeThreeName
+            prodf.loc[count, 'Attribute 3 value(s)'] = productAttributeThreeDesc
+
+        # Save the updated DataFrame to CSV
+        with prodf_lock:
+            prodf.to_csv(productlisting_file_path, index=False, encoding='utf-8')
+        logging.info(f"DataFrame saved to {productlisting_file_path} after updating attributes.")
+        print(f"DataFrame saved to {productlisting_file_path} after updating attributes.")
+
+        # Log the success of attribute generation
+        currentDateTime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        logging.info(f"Successfully generated attributes for product at {currentDateTime}")
+        print(f"Successfully generated attributes for product at {currentDateTime}")
+
+        # Update the attributes_map with new attributes
+        attribute_names = [
+            (productAttributeOneName, productAttributeOneDesc),
+            (productAttributeTwoName, productAttributeTwoDesc),
+            (productAttributeThreeName, productAttributeThreeDesc)
+        ]
+
+        for attr_name, attr_value in attribute_names:
+            if attr_name and attr_value:
+                if attr_name not in attributes_map:
+                    attributes_map[attr_name] = [attr_value]
+                    logging.info(f"Recommended Attribute_Map Update: Added new attribute '{attr_name}' with value '{attr_value}'")
+                    print(f"Recommended Attribute_Map Update: Added new attribute '{attr_name}' with value '{attr_value}'")
+                elif attr_value not in attributes_map[attr_name]:
+                    attributes_map[attr_name].append(attr_value)
+                    logging.info(f"Recommended Attribute_Map Update: Added new value '{attr_value}' to attribute '{attr_name}'")
+                    print(f"Recommended Attribute_Map Update: Added new value '{attr_value}' to attribute '{attr_name}'")
+                    
+        # Log and return
+        logging.info(f"Processed Product Attributes: {productAttributes}")
+        return productAttributes
+        
+    except Exception as e:
+        currentDateTime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        logging.error(f"Failed to generate attributes for product at {currentDateTime}: {str(e)}")
+        print(f"Failed to generate attributes for product at {currentDateTime}: {str(e)}")           
+                        
 # Load and prepare a CSV file, must set file path and file description first 
 def load_and_prepare_csv(file_path, file_description):
     try:
@@ -287,88 +759,92 @@ def isProductSKUInChecklist(sku_checklist, count, productSKU, productName, produ
         print(f"Error processing product {count + 1} at {currentDateTime}: {str(e)}")
         return
 
-# Function to find the parent/variable SKU by checking current product SKU for parent variable then reading backwards through the product list.
-def find_parent_sku(productType, productSKU, prodf, current_index):
+# Function to find the parent/variable SKU by checking current product Type for variable status, then checking Parent row
+def find_parent_sku(productType, productSKU, prodf, current_index, productParent):
     try:
         with logging_lock:
             logging.info("\n def find_parent_sku: Finding Parent SKU...")
         print("\n def find_parent_sku: Finding Parent SKU...")
-        
+
+        # Case when product is a variable type
         if productType == 'variable':
-            print(f"Product is type {productType}, so Parent SKU is set to: {productSKU}")
+            print(f"Product is type '{productType}', so Parent SKU is set to: {productSKU}")
             with logging_lock:
-                logging.info(f"Product is type {productType}, so Parent SKU is set to: {productSKU}")
+                logging.info(f"Product is type '{productType}', so Parent SKU is set to: {productSKU}")
             return productSKU
+
+        # Case when product is not a variable type
         else:
-            # If not variable product, search for Parent SKU
-            with logging_lock:
-                logging.info("Searching for Parent SKU by checking previous rows...")
-            print("Searching for Parent SKU by checking previous rows...")
-            
-            with prodf_lock:
-                for i in range(current_index, -1, -1):  # Start from current_index and go upwards
-                    if pd.notna(prodf.iloc[i]['SKU']) and prodf.iloc[i]['Type'].lower() == "variable":
-                        parent_sku = prodf.iloc[i]['SKU']
-                        
-                        currentDateTime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-                        with logging_lock:
-                            logging.info(f"Successfully obtained Parent_SKU {parent_sku} at {currentDateTime}")
-                        print(f"Successfully obtained Parent_SKU {parent_sku} at {currentDateTime}")                    
-                            
-                        return parent_sku  # Return the parent SKU once found
-                    print("No Parent SKU found above the current index.")
-                    
+            # Check if productParent is provided, otherwise handle missing/none
+            if productParent:
+                print(f"Product is not a variable, setting Parent SKU to: {productParent}")
+                with logging_lock:
+                    logging.info(f"Product is not a variable, setting Parent SKU to: {productParent}")
+                return productParent
+            else:
+                # Log if productParent is missing or not set correctly
+                print(f"Warning: Parent SKU for product {productSKU} could not be determined (productParent is None or missing).")
+                with logging_lock:
+                    logging.error(f"Parent SKU for product {productSKU} could not be determined (productParent is None or missing).")
+                return None  
+
     except Exception as e:
-        currentDateTime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         with logging_lock:
-            logging.error(f"Failed to obtain Parent_SKU at {currentDateTime}: {str(e)}")
-        print(f"Failed to obtain Parent_SKU at {currentDateTime}: {str(e)}")
-        raise                    
+            logging.error(f"Error finding parent SKU for product {productSKU}: {str(e)}")
+        print(f"Error finding parent SKU for product {productSKU}: {str(e)}")
+        raise                   
 
 # Function to find all sibling/children/variant SKUs by reading forward from the Parent/variable in productlistings.csv to the next parent/variable
-def get_children_skus(parent_sku, prodf, start_index):
+def get_children_skus(parent_sku, prodf):
     try:
         with logging_lock:
             logging.info(f"\n def get_children_skus: Finding Children SKUs for Parent SKU: {parent_sku}...")
         print(f"\n def get_children_skus: Finding Children SKUs for Parent SKU: {parent_sku}...")
 
         children_skus = []
-        parent_sku_found = False
 
-        # Iterate through the DataFrame
+        # List all productSKUs that match the current parent_sku (children_skus)
         with prodf_lock:
-            for i in range(start_index, len(prodf)):
-                # Ensure the SKU and Type columns are not NaN
-                sku = prodf.iloc[i, 0]
-                product_type = prodf.iloc[i, 1]
+            for i in range(len(prodf)):
+                # Ensure the SKU and Parent columns are not NaN
+                sku = prodf.iloc[i, 2]  # Assuming column 2 is the SKU column
+                parent_column = prodf.iloc[i, 32]  # Assuming column 32 is the parent SKU column
                 
-                if pd.notna(sku) and pd.notna(product_type):
-                    # Check if the current row matches the parent SKU
-                    if sku == parent_sku:
-                        parent_sku_found = True
-                        print(f"Parent SKU {parent_sku} found at index {i}")
-                    elif parent_sku_found and product_type.lower() == "variable":
-                        print(f"Next variable SKU found at index {i}, stopping search.")
-                        break  # Stop when the next variable entry is found
-                    elif parent_sku_found and product_type.lower() == "variation":
-                        children_skus.append(sku)  # Append the SKU to children_skus if it's a variation
-                        print(f"Child SKU {sku} found at index {i}")
-                        with logging_lock:
-                            logging.info(f"Child SKU {sku} found at index {i}")
+                # Check if both the SKU and parent_column are not NaN and match the parent_sku
+                if pd.notna(sku) and pd.notna(parent_column) and parent_column == parent_sku:
+                    children_skus.append(sku)
+                    print(f"Child SKU {sku} found at index {i}")
+                    with logging_lock:
+                        logging.info(f"Child SKU {sku} found at index {i}")
         
         # Log the children SKUs obtained
         currentDateTime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         with logging_lock:
-            logging.info(f"Successfully obtained Children_SKUs {children_skus} at {currentDateTime}") 
-        print(f"Successfully obtained Children_SKUs {children_skus} at {currentDateTime}")
+            logging.info(f"Successfully obtained Children_SKUs {children_skus} for Parent SKU {parent_sku} at {currentDateTime}") 
+        print(f"Successfully obtained Children_SKUs {children_skus} for Parent SKU {parent_sku} at {currentDateTime}")
                     
         return children_skus
+
     except Exception as e:
         currentDateTime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         with logging_lock:
-            logging.error(f"Failed to obtain Children_SKUs at {currentDateTime}: {str(e)}")
-        print(f"Failed to obtain Children_SKUs at {currentDateTime}: {str(e)}")
+            logging.error(f"Failed to obtain Children_SKUs for Parent SKU {parent_sku} at {currentDateTime}: {str(e)}")
+        print(f"Failed to obtain Children_SKUs for Parent SKU {parent_sku} at {currentDateTime}: {str(e)}")
         raise
+
+def update_productlisting_values(prodf):
+    try:
+        # Change the following columns to "1" regardless of current value
+        prodf['productFeatured'] = 1
+        prodf['productFeedback'] = 1
+        prodf['productPublished'] = 1
+        
+        print("Successfully updated productFeatured, productFeedback, and productPublished to '1'")
+        
+    except KeyError as e:
+        print(f"Column {str(e)} does not exist in the dataframe.")
+    except Exception as e:
+        print(f"An error occurred: {str(e)}")
 
 # Function to upload a file to an assistant
 def upload_file(file_path, client):
@@ -483,15 +959,11 @@ def threading_logic(productSKU, parent_sku, df, client):
             with logging_lock: 
                 logging.info(f"Created new thread for Product SKU {productSKU} using Parent SKU {parent_sku}: {thread_id}")
 
-            # Update Threaddf with new parent information
-            new_entry = pd.DataFrame({'parent_sku': [parent_sku], 'thread_id': [thread_id]})
+            
+            # Update Threaddf with new information
+            new_entry = pd.DataFrame({'productSKU': [productSKU], 'parent_sku': [parent_sku], 'thread_id': [thread_id]})
             with threaddf_lock:
                 df = pd.concat([df, new_entry], ignore_index=True)
-                
-            # Update Threaddf with new product information
-            new_entry = pd.DataFrame({'productSKU': [productSKU], 'thread_id': [thread_id]})
-            with threaddf_lock:
-                df = pd.concat([df, new_entry], ignore_index=True)            
             
             print(f"\n Updated ThreadDF for thread ID: {thread_id}") 
             with logging_lock:
@@ -730,7 +1202,7 @@ def main(skudf_file_path, skujson_file_path, productlisting_file_path, threaddf_
     # Initialize the OpenAI client
     with api_call_lock:
         openai.api_key = openai_api_key
-    client = initialize_client()
+    client = initialize_client(openai_api_key)
 
     # Set Marketing Assistant_ID
     m_assistant_id = "asst_JXUSnRujRuSUjc9VSiACX13B"
@@ -841,6 +1313,7 @@ def main(skudf_file_path, skujson_file_path, productlisting_file_path, threaddf_
                 productTags = row['Tags']
                 productShippingClass = row['Shipping class']
                 productImages = row['Images']
+                productParent = row['Parent']
                 productUpsell = row['Upsells']
                 productCross = row['Cross-sells']
                 productAttributeOneName = row['Attribute 1 name']
@@ -849,6 +1322,9 @@ def main(skudf_file_path, skujson_file_path, productlisting_file_path, threaddf_
                 productAttributeTwoDesc = row['Attribute 2 value(s)']
                 productAttributeThreeName = row['Attribute 3 name']
                 productAttributeThreeDesc = row['Attribute 3 value(s)']
+                productFeatured = row['Is featured?']
+                productFeedback = row['Allow customer reviews?']
+                productPublished = row['Published']
                 
                 # Handle NaN values
                 if pd.isna(productLDescription):
@@ -863,14 +1339,14 @@ def main(skudf_file_path, skujson_file_path, productlisting_file_path, threaddf_
                     # Get Parent SKU
                     try:
                         current_index = count
-                        parent_sku = find_parent_sku(row['Type'], row['SKU'], prodf, current_index)
+                        parent_sku = find_parent_sku(row['Type'], row['SKU'], prodf, current_index, productParent)
                     except Exception as e:
                         with logging_lock:
                             logging.error(f"\n Failed to obtain Parent_SKU at {datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}: {e}")
                         print(f"\n Failed to obtain Parent_SKU at {datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}: {e}")
                         continue
 
-                    # Find the index of parent_sku in the prodf DataFrame
+                    # Find the parent_sku in the prodf DataFrame
                     try:
                         start_index = prodf.loc[prodf['SKU'] == parent_sku].index[0]  # Get the first matching index
                     except IndexError:
@@ -1033,16 +1509,16 @@ def main(skudf_file_path, skujson_file_path, productlisting_file_path, threaddf_
                     # Handle NaN values for productCategories
                     if pd.isna(productCategories):
                         productCategories = ''  
-                    
+
                     try:
                         logging.info("Generating product categories...")
-                    
+
                         # 1. Check if productCategories is already assigned and not empty
                         if productCategories and productCategories.strip():
                             resultProductCategories = productCategories
                             logging.info(f"\n Product categories already exist for {productSKU}: {productCategories}")
                             print(f"\n Product categories already exist for {productSKU}: {productCategories}")
-                        
+
                         else:
                             # 2. If no categories exist, attempt to find a matching category from the category_map
                             category_key = None
@@ -1050,19 +1526,30 @@ def main(skudf_file_path, skujson_file_path, productlisting_file_path, threaddf_
                                 if key in productName.lower():  # Assuming productName contains the name of the product
                                     category_key = key
                                     break
-                    
+
                             if category_key:
                                 # If a matching category is found in the category_map
-                                resultProductCategories = " > ".join(category_map[category_key])
+                                category_list = category_map[category_key]
+            
+                                # Separate the hierarchical categories and tags
+                                hierarchical_categories = []
+                                tags = []
+                                for category in category_list:
+                                    if "For" in category:  # Tags like "For Ferrets" or "For Humans"
+                                        tags.append(category)
+                                    else:
+                                        hierarchical_categories.append(category)
+
+                                # Join hierarchical categories with " > ", but keep tags separate
+                                resultProductCategories = " > ".join(hierarchical_categories) + ", " + ", ".join(tags)
                                 resultProductCategories = sanitize_description(resultProductCategories)
-                                
+
                                 currentDateTime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
                                 logging.info(f"\n Matched product '{productName}' with category '{resultProductCategories}' using key '{category_key}' at {currentDateTime}")
                                 print(f"\n Matched product '{productName}' with category '{resultProductCategories}' using key '{category_key}' at {currentDateTime}")
-                    
+
                             else:
                                 # 3. If no matching category is found in the map, generate categories using getChatCompletions
-                                # Set xxx variable to productCategories
                                 xxx = productCategories or "Uncategorized"
                                 logging.info(f"\n Current productCategories: {xxx}")
                                 print(f"\n Current productCategories: {xxx}")
@@ -1127,10 +1614,14 @@ def main(skudf_file_path, skujson_file_path, productlisting_file_path, threaddf_
                         with logging_lock:
                             logging.error(f"\n Failed to generate {xxx} for {productSKU} at {currentDateTime}: {str(e)}")
                         print(f"\n Failed to generate {xxx} for {productSKU} at {currentDateTime}: {str(e)}")
-                    
+
                     updatedataframe(prodf, count, 'Categories', resultProductCategories, productlisting_file_path)
                     
                     # Generate Product Tags with specific formatting requirements, using the getChatCompletions function
+                    # Handle NaN values for productCategories
+                    if pd.isna(productTags):
+                        productTags = '' 
+                    
                     try:
                         logging.info("Generating product Tags...")
                     
@@ -1211,200 +1702,43 @@ def main(skudf_file_path, skujson_file_path, productlisting_file_path, threaddf_
                     updatedataframe(prodf, count, 'Tags', resultProductTags, productlisting_file_path)                    
                     
                     # Generate Product Attributes with specific formatting requirements, using the getChatCompletions function
-                    resultProductAttributes = None
+                    resultProductAttributes = generate_product_attributes(openai_api_key, productSKU, parent_sku, thread_id, m_assistant_id, client, prodf, count, productlisting_file_path, attributes_map, logging)
                     
-                    try:
-                        logging.info("Generating Attributes...")
-                        print("Generating Attributes...")
-                    
-                        # Gather existing data from the product fields
-                        productAttributes = {
-                            "AttributeOneName": productAttributeOneName,
-                            "AttributeOneDesc": productAttributeOneDesc,
-                            "AttributeTwoName": productAttributeTwoName,
-                            "AttributeTwoDesc": productAttributeTwoDesc,
-                            "AttributeThreeName": productAttributeThreeName,
-                            "AttributeThreeDesc": productAttributeThreeDesc,
-                        }
-                        
-                        # Handle None or empty values in productAttributes
-                        for key, value in productAttributes.items():
-                            if pd.isna(value) or value == '':
-                                productAttributes[key] = "N/A"                        
-                        
-                        # Set xxx variable to productAttributes
-                        xxx = productAttributes
-                        logging.info(f"Current productAttributes: {xxx}")
-                        print(f"Current productAttributes: {xxx}")
-                        
-                        # Extract parent product information for additional context in the API request
-                        def get_attribute_or_unknown(sku, column_name):
-                            value = extractedparentinfo(sku, column_name, prodf)
-                            if pd.isna(value) or value == '':
-                                return "Unknown"
-                            return value                        
 
-                
-                        parentAttributeOneName = get_attribute_or_unknown(parent_sku, 'Attribute 1 name')
-                        parentAttributeOneDesc = get_attribute_or_unknown(parent_sku, 'Attribute 1 value(s)')
-                        parentAttributeTwoName = get_attribute_or_unknown(parent_sku, 'Attribute 2 name')
-                        parentAttributeTwoDesc = get_attribute_or_unknown(parent_sku, 'Attribute 2 value(s)')
-                        parentAttributeThreeName = get_attribute_or_unknown(parent_sku, 'Attribute 3 name')
-                        parentAttributeThreeDesc = get_attribute_or_unknown(parent_sku, 'Attribute 3 value(s)')
-                        
-                        # Log extractions
-                        logging.info(
-                            f"Setting parent dataframe information: PARENT PRODUCT ATTRIBUTES: "
-                            f"{parentAttributeOneName}, {parentAttributeOneDesc}, "
-                            f"{parentAttributeTwoName}, {parentAttributeTwoDesc}, "
-                            f"{parentAttributeThreeName}, {parentAttributeThreeDesc}"
-                        )
-                        print(
-                            f"Setting parent dataframe information: PARENT PRODUCT ATTRIBUTES: "
-                            f"{parentAttributeOneName}, {parentAttributeOneDesc}, "
-                            f"{parentAttributeTwoName}, {parentAttributeTwoDesc}, "
-                            f"{parentAttributeThreeName}, {parentAttributeThreeDesc}"
-                        )
-                        
-                        # Parent Product Request
-                        responseParentProduct = (
-                            "Use any and all relevant information to assess the 3 most relevant and useful product attributes "
-                            "(Name and Description) from the available attributes shown in the attributes_map, existing information, "
-                            "and your own best assessment of the product. You are to choose the 3 best attributes available to represent "
-                            "the item. You will be given any existing information and must strongly consider it for inclusion in the "
-                            "output you create. The output should be a JSON object with the keys: AttributeOneName, AttributeOneDesc, "
-                            "AttributeTwoName, AttributeTwoDesc, AttributeThreeName, AttributeThreeDesc."
-                            "\n Your response should be only the JSON object, and no additional text."
-                            "\n Example JSON format:"
-                            "{\n"
-                            "  \"AttributeOneName\": \"Color\",\n"
-                            "  \"AttributeOneDesc\": \"Blue\",\n"
-                            "  \"AttributeTwoName\": \"Size\",\n"
-                            "  \"AttributeTwoDesc\": \"Medium\",\n"
-                            "  \"AttributeThreeName\": \"Material\",\n"
-                            "  \"AttributeThreeDesc\": \"Cotton\"\n"
-                            "}"
-                            f"\n Existing product data: {productAttributes}"
-                            f"\n Existing parent product data: {{'AttributeOneName': '{parentAttributeOneName}', 'AttributeOneDesc': '{parentAttributeOneDesc}', "
-                            f"'AttributeTwoName': '{parentAttributeTwoName}', 'AttributeTwoDesc': '{parentAttributeTwoDesc}', "
-                            f"'AttributeThreeName': '{parentAttributeThreeName}', 'AttributeThreeDesc': '{parentAttributeThreeDesc}'}}."
-                            f"\n Attributes Map: {attributes_map}"
-                        )                        
-                        
-                        # Child Product Request
-                        responseChildProduct = (
-                            "Remembering that this product is a variation of the parent product, use any and all relevant information to assess the 3 most relevant and useful product attributes "
-                            "(Name and Description) from the available attributes shown in the attributes_map, existing information, "
-                            "and your own best assessment of the product. You are to choose the 3 best attributes available to represent "
-                            "the item. You will be given any existing information and must strongly consider it for inclusion in the "
-                            "output you create. The output should be a JSON object with the keys: AttributeOneName, AttributeOneDesc, "
-                            "AttributeTwoName, AttributeTwoDesc, AttributeThreeName, AttributeThreeDesc."
-                            "\n Your response should be only the JSON object, and no additional text."
-                            "\n Example JSON format:"
-                            "{\n"
-                            "  \"AttributeOneName\": \"Color\",\n"
-                            "  \"AttributeOneDesc\": \"Blue\",\n"
-                            "  \"AttributeTwoName\": \"Size\",\n"
-                            "  \"AttributeTwoDesc\": \"Medium\",\n"
-                            "  \"AttributeThreeName\": \"Material\",\n"
-                            "  \"AttributeThreeDesc\": \"Cotton\"\n"
-                            "}"
-                            f"\n Existing product data: {productAttributes}"
-                            f"\n Existing parent product data: {{'AttributeOneName': '{parentAttributeOneName}', 'AttributeOneDesc': '{parentAttributeOneDesc}', "
-                            f"'AttributeTwoName': '{parentAttributeTwoName}', 'AttributeTwoDesc': '{parentAttributeTwoDesc}', "
-                            f"'AttributeThreeName': '{parentAttributeThreeName}', 'AttributeThreeDesc': '{parentAttributeThreeDesc}'}}."
-                            f"\n Attributes Map: {attributes_map}"
-                        )                        
-                                           
-                        logging.info("Setting Parent and Child Product responses.")
-                        print("Setting Parent and Child Product responses.")
-                    
-                        # Call getChatCompletions function to get AI-generated attributes
-                        try:
-                            resultProductAttributes = getChatCompletions(
-                                openai_api_key, xxx, productSKU, parent_sku, responseParentProduct, responseChildProduct, thread_id, m_assistant_id, client
-                            )
-                            if not resultProductAttributes:
-                                raise ValueError("AI response is empty")
-                        except Exception as e:
-                            logging.error(f"Error during AI call: {str(e)}")
-                            raise
 
-                        # Log the AI response
-                        logging.info(f"AI Response for Attributes: {resultProductAttributes}")
-                        print(f"AI Response for Attributes: {resultProductAttributes}")
-                
-                        # Parse the AI response (extract JSON)
-                        try:
-                            # Use regular expression to find the JSON object in the response
-                            import re
-                            json_pattern = re.compile(r'\{.*\}', re.DOTALL)
-                            match = json_pattern.search(resultProductAttributes)
-                            if match:
-                                json_str = match.group(0)
-                                resultAttributes = json.loads(json_str)
-                                logging.info("Successfully extracted and parsed AI response into JSON.")
-                                print("Successfully extracted and parsed AI response into JSON.")
-                            else:
-                                logging.error("No JSON object found in AI response.")
-                                print("No JSON object found in AI response.")
-                                raise ValueError("No JSON object found in AI response.")
-                        except json.JSONDecodeError as e:
-                            logging.error(f"Failed to parse AI response as JSON: {e}")
-                            print(f"Failed to parse AI response as JSON: {e}")
-                            raise
-                
-                        # Assign the AI-generated attributes to the relevant fields
-                        productAttributeOneName = resultAttributes.get("AttributeOneName", productAttributeOneName)
-                        productAttributeOneDesc = resultAttributes.get("AttributeOneDesc", productAttributeOneDesc)
-                        productAttributeTwoName = resultAttributes.get("AttributeTwoName", productAttributeTwoName)
-                        productAttributeTwoDesc = resultAttributes.get("AttributeTwoDesc", productAttributeTwoDesc)
-                        productAttributeThreeName = resultAttributes.get("AttributeThreeName", productAttributeThreeName)
-                        productAttributeThreeDesc = resultAttributes.get("AttributeThreeDesc", productAttributeThreeDesc)
 
-                        # Update the DataFrame with the new attributes
-                        with prodf_lock:
-                            prodf.loc[count, 'Attribute 1 name'] = productAttributeOneName
-                            prodf.loc[count, 'Attribute 1 value(s)'] = productAttributeOneDesc
-                            prodf.loc[count, 'Attribute 2 name'] = productAttributeTwoName
-                            prodf.loc[count, 'Attribute 2 value(s)'] = productAttributeTwoDesc
-                            prodf.loc[count, 'Attribute 3 name'] = productAttributeThreeName
-                            prodf.loc[count, 'Attribute 3 value(s)'] = productAttributeThreeDesc
-                
-                        # Save the updated DataFrame to CSV
-                        with prodf_lock:
-                            prodf.to_csv(productlisting_file_path, index=False, encoding='utf-8')
-                        logging.info(f"DataFrame saved to {productlisting_file_path} after updating attributes.")
-                        print(f"DataFrame saved to {productlisting_file_path} after updating attributes.")
-                
-                        # Log the success of attribute generation
-                        currentDateTime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-                        logging.info(f"Successfully generated attributes for {productName} at {currentDateTime}")
-                        print(f"Successfully generated attributes for {productName} at {currentDateTime}")
-                
-                        # Log the recommended updates to the Productlistings.csv
-                        attribute_names = [
-                            (productAttributeOneName, productAttributeOneDesc),
-                            (productAttributeTwoName, productAttributeTwoDesc),
-                            (productAttributeThreeName, productAttributeThreeDesc)
-                        ]
-                
-                        for attr_name, attr_value in attribute_names:
-                            if attr_name and attr_value:
-                                if attr_name not in attributes_map:
-                                    attributes_map[attr_name] = [attr_value]
-                                    logging.info(f"Recommended Attribute_Map Update: Added new attribute '{attr_name}' with value '{attr_value}'")
-                                    print(f"Recommended Attribute_Map Update: Added new attribute '{attr_name}' with value '{attr_value}'")
-                                elif attr_value not in attributes_map[attr_name]:
-                                    attributes_map[attr_name].append(attr_value)
-                                    logging.info(f"Recommended Attribute_Map Update: Added new value '{attr_value}' to attribute '{attr_name}'")
-                                    print(f"Recommended Attribute_Map Update: Added new value '{attr_value}' to attribute '{attr_name}'")
-                
-                    except Exception as e:
-                        currentDateTime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-                        logging.error(f"Failed to generate attributes for {productName} at {currentDateTime}: {str(e)}")
-                        print(f"Failed to generate attributes for {productName} at {currentDateTime}: {str(e)}")
+
+
+
+
+
+
+
+
+
+                        
+                        
+                    # Get productHeight 
+                    resultProductHeight = find_or_confirm_height(openai_api_key, productHeight, productName, productSKU, parent_sku, thread_id, m_assistant_id, client)
+                    updatedataframe(prodf, count, 'Height (cm)', resultProductHeight, productlisting_file_path) 
                     
+                    # Get productLength 
+                    resultProductLength = find_or_confirm_length(openai_api_key, productLength, productName, productSKU, parent_sku, thread_id, m_assistant_id, client)
+                    updatedataframe(prodf, count, 'Length (cm)', resultProductLength, productlisting_file_path) 
+                    
+                    # Get productWidth
+                    resultProductWidth = find_or_confirm_width(openai_api_key, productWidth, productName, productSKU, parent_sku, thread_id, m_assistant_id, client)
+                    updatedataframe(prodf, count, 'Width (cm)', resultProductWidth, productlisting_file_path) 
+
+                    # Get productWeight
+                    resultProductWeight = find_or_confirm_weight(openai_api_key, productWeight, productName, productSKU, parent_sku, productHeight, productWidth, productLength, thread_id, m_assistant_id, client)
+                    updatedataframe(prodf, count, 'Weight (kg)', resultProductWeight, productlisting_file_path)  
+                    
+                    # Update productFeatured, productFeedback and productPublished to "1"
+                    update_productlisting_values(prodf)
+                    
+                    # Update productPurchaseNote
+                    resultPurchaseNote = write_purchase_note(openai_api_key, resultName, resultProductSDescription, resultProductLDescription, productName, productSKU, parent_sku, thread_id, m_assistant_id, client)
 
                 
             else:
@@ -1445,1209 +1779,3 @@ if __name__ == '__main__':
     )
     logging.warning("\n Warming Up: Let's go!!!")
     print("\n Warming Up: Let's go!!!")
-
-
-
-
-#################### SCRAP CODE TO CLEAN ############################
-#################### SCRAP CODE TO CLEAN ############################
-    #################### SCRAP CODE TO CLEAN ############################
-    #################### SCRAP CODE TO CLEAN ############################
-    #################### SCRAP CODE TO CLEAN ############################
-    #################### SCRAP CODE TO CLEAN ############################
-    #################### SCRAP CODE TO CLEAN ############################
-    #################### SCRAP CODE TO CLEAN ############################
-    #################### SCRAP CODE TO CLEAN ############################
-    #################### SCRAP CODE TO CLEAN ############################
-    #################### SCRAP CODE TO CLEAN ############################
-    #################### SCRAP CODE TO CLEAN ############################
-    #################### SCRAP CODE TO CLEAN ############################
-import openai
-import pandas as pd
-import csv
-import logging
-from datetime import datetime
-import os
-
-# Define marketing personality
-marketingPersonality = (
-    "You are a Marketing Genius creating product listings for The Dookery, a website dedicated to providing high-quality ferret-related products. "
-    "Your focus is on emphasizing the usefulness and comfort of these products for ferrets and ferret lovers. Your tone is honest, authentic, super friendly, and trustworthy. "
-    "You always apply the best standards for marketing to all output you create and use all of the most modern methods in your practices. "
-    "You always emphasize the luxuriousness and quality of product sets. You spell out the obvious to avoid assumptions of buyer knowledge, and use emojis to enhance your text readability."
-    "Product Categories include the following: Adventure (For Ferrets) includes sub-categories such as Adventure Gift Baskets (For Ferrets), Adventure Learn (For Humans), Adventure Subscription (For Ferrets), "
-    "Carry Bags & Cages (For Ferrets), Digital Devices (For Ferrets) which further includes GPS Trackers (For Ferrets), Travel Bedding (For Ferrets), and Travel Food & Water Bowls (For Ferrets). "
-    "Essentials (For Ferrets) encompasses Bedding & Blankets (For Ferrets), Cages (For Ferrets), Essentials Gift Baskets (For Ferrets), Essentials Learn (For Humans), Essentials Subscription (For Ferrets), "
-    "Food (For Ferrets), Food & Water Bowls (For Ferrets), Grooming Tools (For Ferrets), and Litter Trays (For Ferrets). "
-    "Lifestyle (For Ferrets) (For Humans) includes Access Steps (For Ferrets), Apparel & Accessories (For Humans) (For Ferrets) with sub-categories like Bracelets (For Humans), Costumes (For Humans) which includes Ferret Costumes (For Ferrets) and Human Costumes (For Humans), "
-    "Earrings (For Humans), Hairpieces (For Humans), Hoodies (For Humans), Necklaces (For Humans), Onesies (For Humans), Rings (For Humans), Socks (For Humans), and Tops (For Humans), "
-    "Digital Devices (For Ferrets) with sub-categories such as Food & Water Bowls (For Ferrets), Grooming Tools (For Ferrets), Litter Trays (For Ferrets), and Pet Cameras (For Ferrets), "
-    "Homeware (For Humans) which includes Art Prints (For Humans), Calendars (For Humans), Cushions & Bedding (For Humans), Custom Ferret Portrait (For Humans), Keychains (For Humans), Phone Cases (For Humans), "
-    "Plates & Mugs (For Humans), Stationary (For Humans) which includes Diaries & Notebooks (For Humans), Pens (For Humans), and Stickers (For Humans), Wall Decals (For Humans), "
-    "Lifestyle Gift Baskets (For Humans), Lifestyle Learn (For Humans), and Lifestyle Subscription (For Humans). "
-    "Play & Train (For Ferrets) comprises Ferret Training Guides (For Humans), Play & Train Gift Baskets (For Ferrets), Play & Train Learn (For Humans), Play & Train Subscription (For Ferrets) (For Humans), "
-    "Play Pens (For Ferrets), Toys (For Ferrets), Training Aids & Other Tools (For Ferrets) which includes Books & Others Resources (For Humans), Clickers (For Ferrets), Collars (For Ferrets), Harnesses (For Ferrets), Leashes (For Ferrets), and Treats (For Ferrets), "
-    "and Workshops & Others Courses (For Humans). Uncategorized is also available for products that do not fit into the other categories."
-    "Unique Selling Points: The Dookery is a centralized platform catering to the specific needs of ferret owners and lovers, it offers a range of ferret-themed goods and necessities, "
-    "ensuring a comprehensive and trusted marketplace for quality and safe products, and it strives to be more than a marketplace by providing educational resources, vet contacts, classes, and grants, converting it into a community hub for learning, interaction, and collaboration towards better ferret care."
-    "Target Audience: Individuals who own or are interested in owning ferrets, typically aged between 25 and 45, with an annual income of $50,000-$100,000. "
-    "These customers are willing to spend on high-quality products and services, averaging $100-$200 monthly on supplies and $500-$1000 annually on veterinary care, "
-    "and/or They are active in the pet community and on social media platforms like Facebook and Instagram, sharing their passion for ferrets."
-    "Tone and Brand Voice: Friendly, authentic, trustworthy, sweet, kind, and hopeful, Emphasize luxuriousness and quality in product sets, Use emojis to enhance text readability."
-    "Scientific Accuracy and Real-World Usage: follow academic standards for scientific accuracy, citing academic knowledge or offering it with caution, Describe real-world usage scenarios, "
-    "considering ferret-specific safety standards and needs, and any potential impacts on other pets or children in the household. Your advice is scientifically accurate, describes real-world usage scenarios, "
-    "considers ferret-specific safety standards and needs, and considers any potential impacts on any pet or child in the household from product usage."
-    "Key Messages: We're here to help and we want your feedback. This is about us serving you to the best of our abilities, so tell us how to do that. Be kind to yourself and your ferrets. You all deserve the best life."
-)
-# Define the category map
-category_map = {
-    "leash": ["For Ferrets", "Play & Train > Training Aids & Other Tools > Leashes"],
-    "wall decal": ["Lifestyle > Homeware > Wall Decals", "For Humans"],
-    "bedding": ["Essentials > Bedding & Blankets", "For Ferrets"],
-    "food bowl": ["Essentials > Food & Water Bowls", "For Ferrets"],
-    "travel bowl": ["Adventure > Travel Food & Water Bowls", "For Ferrets"],
-    "harness": ["For Ferrets", "Play & Train > Training Aids & Other Tools > Harnesses"],
-    "collar": ["For Ferrets", "Play & Train > Training Aids & Other Tools > Collars"],
-    "adventure gift basket": ["Adventure > Adventure Gift Baskets", "For Ferrets"],
-    "adventure learn": ["Adventure > Adventure Learn", "For Humans"],
-    "adventure subscription": ["Adventure > Adventure Subscription", "For Ferrets"],
-    "carry bag": ["Adventure > Carry Bags & Cages", "For Ferrets"],
-    "cage": ["Essentials > Cages", "For Ferrets"],
-    "digital device": ["Adventure > Digital Devices", "For Ferrets"],
-    "gps tracker": ["Adventure > Digital Devices > GPS Trackers", "For Ferrets"],
-    "travel bedding": ["Adventure > Travel Bedding", "For Ferrets"],
-    "food": ["Essentials > Food", "For Ferrets"],
-    "grooming tool": ["Essentials > Grooming Tools", "For Ferrets"],
-    "litter tray": ["Essentials > Litter Trays", "For Ferrets"],
-    "access step": ["Lifestyle > Access Steps", "For Ferrets"],
-    "bracelet": ["Lifestyle > Apparel & Accessories > Bracelets", "For Humans"],
-    "costume": ["Lifestyle > Apparel & Accessories > Costumes", "For Humans"],
-    "ferret costume": ["Lifestyle > Apparel & Accessories > Ferret Costumes", "For Ferrets"],
-    "human costume": ["Lifestyle > Apparel & Accessories > Human Costumes", "For Humans"],
-    "earring": ["Lifestyle > Apparel & Accessories > Earrings", "For Humans"],
-    "hairpiece": ["Lifestyle > Apparel & Accessories > Hairpieces", "For Humans"],
-    "hoodie": ["Lifestyle > Apparel & Accessories > Hoodies", "For Humans"],
-    "necklace": ["Lifestyle > Apparel & Accessories > Necklaces", "For Humans"],
-    "onesie": ["Lifestyle > Apparel & Accessories > Onesies", "For Humans"],
-    "ring": ["Lifestyle > Apparel & Accessories > Rings", "For Humans"],
-    "sock": ["Lifestyle > Apparel & Accessories > Socks", "For Humans"],
-    "top": ["Lifestyle > Apparel & Accessories > Tops", "For Humans"],
-    "pet camera": ["Lifestyle > Digital Devices > Pet Cameras", "For Ferrets"],
-    "art print": ["Lifestyle > Homeware > Art Prints", "For Humans"],
-    "calendar": ["Lifestyle > Homeware > Calendars", "For Humans"],
-    "cushion": ["Lifestyle > Homeware > Cushions & Bedding", "For Humans"],
-    "custom ferret portrait": ["Lifestyle > Homeware > Custom Ferret Portrait", "For Humans"],
-    "keychain": ["Lifestyle > Homeware > Keychains", "For Humans"],
-    "phone case": ["Lifestyle > Homeware > Phone Cases", "For Humans"],
-    "plate": ["Lifestyle > Homeware > Plates & Mugs", "For Humans"],
-    "stationary": ["Lifestyle > Homeware > Stationary", "For Humans"],
-    "diary": ["Lifestyle > Homeware > Stationary > Diaries & Notebooks", "For Humans"],
-    "pen": ["Lifestyle > Homeware > Stationary > Pens", "For Humans"],
-    "sticker": ["Lifestyle > Homeware > Stationary > Stickers", "For Humans"],
-    "lifestyle gift basket": ["Lifestyle > Lifestyle Gift Baskets", "For Humans"],
-    "lifestyle learn": ["Lifestyle > Lifestyle Learn", "For Humans"],
-    "lifestyle subscription": ["Lifestyle > Lifestyle Subscription", "For Humans"],
-    "ferret training guide": ["Play & Train > Ferret Training Guides", "For Humans"],
-    "play & train gift basket": ["Play & Train > Play & Train Gift Baskets", "For Ferrets"],
-    "play & train learn": ["Play & Train > Play & Train Learn", "For Humans"],
-    "play & train subscription": ["For Ferrets", "For Humans", "Play & Train > Play & Train Subscription"],
-    "play pen": ["Play & Train > Play Pens", "For Ferrets"],
-    "toy": ["For Ferrets", "Play & Train > Toys"],
-    "training aid": ["For Ferrets", "Play & Train > Training Aids & Other Tools"],
-    "book": ["Play & Train > Training Aids & Other Tools > Books & Others Resources", "For Humans"],
-    "clicker": ["For Ferrets", "Play & Train > Training Aids & Other Tools > Clickers"],
-    "treat": ["For Ferrets", "Play & Train > Training Aids & Other Tools > Treats"],
-    "workshop": ["Play & Train > Workshops & Others Courses", "For Humans"],
-    "course": ["Play & Train > Workshops & Others Courses", "For Humans"],
-    "uncategorised": ["Uncategorised"],
-}
-
-# Define the Attributes_Map
-attributes_map = {
-    "artist": ["FerretFatale", "SitcomReality"],
-    "childrens-clothing-sizes": [
-        "Big Kids US 10, EU 146-152, UK 9-10 years", "Big Kids US 12, EU 158-164, UK 11-12 years",
-        "Big Kids US 14, EU 158-164, UK 13-14 years", "Big Kids US 16, EU 170-176, UK 13-14 years",
-        "Big Kids US 4, EU 134-140, UK 5-6 years", "Big Kids US 5, EU 134-140, UK 6-7 years",
-        "Big Kids US 6, EU 134-140, UK 6-7years", "Big Kids US 7, EU 146-152, UK 7-8 years",
-        "Big Kids US 8, EU 146-152, UK 8-9 years", "Infant: US 3-6 months, EU 62-68, UK 3-6 months",
-        "Infant: US 6-9 months, EU 74-80, UK 6-9 months", "Infant: US 9-12 months, EU 74-80, UK 9-12 months",
-        "Little Kids US 2T, EU 110-116, UK 2-3years", "Little Kids US 3T, EU 110-116, UK 3-4 years",
-        "Little Kids US 4T, EU 122-128, UK 4-5 years", "Little Kids US 5T, EU 122-128, UK 4-5years",
-        "Newborn: US 0-3 months, EU 50-56, UK 0-3 months", "Toddler: US 12-18 months, EU 86-92, UK 12-18 months",
-        "Toddler: US 18-24 months, EU 98-104, UK 18-24 months"
-    ],
-    "color": [
-        "Aqua", "Beige", "Black", "Blue", "Brown", "Burgundy", "Chocolate", "Coral", "Cream",
-        "Fuchsia", "Gold", "Gray", "Green", "Ivory", "Khaki", "Lavender", "Light Pink", "Lime",
-        "Magenta", "Maroon", "Mint", "Multicolor", "Navy", "Neon", "Olive", "Orange", "Pastel",
-        "Peach", "Pink", "Plum", "Purple", "Red", "Royal Blue", "Silver", "Sky Blue", "Tan",
-        "Teal", "Turquoise", "Violet", "White", "Yellow"
-    ],
-    "mens-clothing-sizes": [
-        "Extra Extra Large: US 50-52, EU 60-62, UK 50-52", "Extra Large: US 46-48, EU 56-58, UK 46-48",
-        "Extra-Small: US 34, EU 44, UK 34", "Large: US 42-44, EU 52-54, UK 42-44",
-        "Medium: US 38-40, EU 48-50, UK 38-40", "Small: US 36, EU 46, UK 36"
-    ],
-    "womens-clothing-sizes": [
-        "Extra Extra Large: US 20-22, EU 52-54, UK 24-26", "Extra Large: US 16-18, EU 48-50, UK 20-22",
-        "Extra Small: US 0-2, EU 32-34, UK 4-6", "Large: US 12-14, EU 44-46, UK 16-18",
-        "Medium: US 8-10, EU 40-42, UK 12-14", "Small: US 4-6, EU 36-38, UK 8-10"
-    ]
-}
-
-#Define the Complementary_Map
-complementary_map = {
-    "Adventure": ["Travel Bedding", "Carry Bags & Cages", "GPS Trackers", "Travel Food & Water Bowls"],
-    "Adventure Gift Baskets": ["Travel Bedding", "GPS Trackers", "Carry Bags & Cages"],
-    "Adventure Learn": ["Ferret Training Guides", "Workshops & Others Courses"],
-    "Adventure Subscription": ["Travel Bedding", "GPS Trackers", "Digital Devices"],
-    "Carry Bags & Cages": ["Travel Bedding", "GPS Trackers", "Leashes"],
-    "Digital Devices": ["Pet Cameras", "GPS Trackers", "Training Aids & Other Tools"],
-    "GPS Trackers": ["Carry Bags & Cages", "Leashes", "Harnesses"],
-    "Travel Bedding": ["Carry Bags & Cages", "Blankets", "Essentials Subscription"],
-    "Travel Food & Water Bowls": ["Carry Bags & Cages", "Treats", "Essentials Subscription"],
-    
-    "Essentials": ["Bedding & Blankets", "Litter Trays", "Grooming Tools"],
-    "Bedding & Blankets": ["Travel Bedding", "Essentials Subscription", "Cushions & Bedding"],
-    "Cages": ["Bedding & Blankets", "Litter Trays", "Food & Water Bowls"],
-    "Essentials Gift Baskets": ["Bedding & Blankets", "Litter Trays", "Grooming Tools"],
-    "Essentials Learn": ["Ferret Training Guides", "Workshops & Others Courses"],
-    "Essentials Subscription": ["Bedding & Blankets", "Litter Trays", "Grooming Tools"],
-    "Food": ["Food & Water Bowls", "Treats", "Essentials Subscription"],
-    "Food & Water Bowls": ["Cages", "Treats", "Training Aids & Other Tools"],
-    "Grooming Tools": ["Litter Trays", "Essentials Subscription", "Digital Devices"],
-    "Litter Trays": ["Bedding & Blankets", "Essentials Subscription", "Grooming Tools"],
-    
-    "Lifestyle": ["Homeware", "Apparel & Accessories", "Digital Devices"],
-    "Access Steps": ["Cages", "Bedding & Blankets", "Training Aids & Other Tools"],
-    "Apparel & Accessories": ["Homeware", "Lifestyle Gift Baskets", "Lifestyle Subscription"],
-    "Bracelets": ["Necklaces", "Rings", "Keychains"],
-    "Costumes": ["Hoodies", "Onesies", "Ferret Costumes"],
-    "Ferret Costumes": ["Human Costumes", "Apparel & Accessories", "Lifestyle Subscription"],
-    "Human Costumes": ["Ferret Costumes", "Onesies", "Socks"],
-    "Earrings": ["Necklaces", "Bracelets", "Rings"],
-    "Hairpieces": ["Hoodies", "Tops", "Socks"],
-    "Hoodies": ["Onesies", "Tops", "Human Costumes"],
-    "Necklaces": ["Bracelets", "Earrings", "Rings"],
-    "Onesies": ["Hoodies", "Socks", "Costumes"],
-    "Rings": ["Bracelets", "Earrings", "Necklaces"],
-    "Socks": ["Onesies", "Hoodies", "Tops"],
-    "Tops": ["Hoodies", "Socks", "Onesies"],
-    
-    "Homeware": ["Art Prints", "Calendars", "Custom Ferret Portrait"],
-    "Art Prints": ["Custom Ferret Portrait", "Calendars", "Wall Decals"],
-    "Calendars": ["Diaries & Notebooks", "Art Prints", "Custom Ferret Portrait"],
-    "Cushions & Bedding": ["Bedding & Blankets", "Travel Bedding", "Lifestyle Subscription"],
-    "Custom Ferret Portrait": ["Art Prints", "Calendars", "Wall Decals"],
-    "Keychains": ["Phone Cases", "Bracelets", "Necklaces"],
-    "Phone Cases": ["Keychains", "Custom Ferret Portrait", "Plates & Mugs"],
-    "Plates & Mugs": ["Cushions & Bedding", "Wall Decals", "Lifestyle Subscription"],
-    "Stationery": ["Diaries & Notebooks", "Pens", "Stickers"],
-    "Diaries & Notebooks": ["Calendars", "Pens", "Stickers"],
-    "Pens": ["Diaries & Notebooks", "Stickers", "Calendars"],
-    "Stickers": ["Diaries & Notebooks", "Pens", "Calendars"],
-    "Wall Decals": ["Art Prints", "Custom Ferret Portrait", "Plates & Mugs"],
-    "Lifestyle Gift Baskets": ["Cushions & Bedding", "Calendars", "Homeware"],
-    "Lifestyle Learn": ["Workshops & Others Courses", "Ferret Training Guides", "Essentials Learn"],
-    "Lifestyle Subscription": ["Homeware", "Apparel & Accessories", "Cushions & Bedding"],
-    
-    "Play & Train": ["Toys", "Play Pens", "Training Aids & Other Tools"],
-    "Ferret Training Guides": ["Books & Others Resources", "Clickers", "Harnesses"],
-    "Play & Train Gift Baskets": ["Toys", "Treats", "Training Aids & Other Tools"],
-    "Play & Train Learn": ["Ferret Training Guides", "Workshops & Others Courses"],
-    "Play & Train Subscription": ["Toys", "Training Aids & Other Tools", "Treats"],
-    "Play Pens": ["Toys", "Training Aids & Other Tools", "Leashes"],
-    "Toys": ["Treats", "Play Pens", "Play & Train Subscription"],
-    "Training Aids & Other Tools": ["Clickers", "Harnesses", "Collars"],
-    "Books & Others Resources": ["Ferret Training Guides", "Workshops & Others Courses"],
-    "Clickers": ["Training Aids & Other Tools", "Harnesses", "Treats"],
-    "Collars": ["Harnesses", "Leashes", "Training Aids & Other Tools"],
-    "Harnesses": ["Leashes", "Collars", "Training Aids & Other Tools"],
-    "Leashes": ["Harnesses", "Collars", "GPS Trackers"],
-    "Treats": ["Toys", "Training Aids & Other Tools", "Food"],
-    
-    "Workshops & Others Courses": ["Ferret Training Guides", "Essentials Learn", "Lifestyle Learn"]
-}
-
-# Generate a filename with the current datetime for script logging
-log_filename = datetime.now().strftime("automation_%Y-%m-%d_%H-%M-%S.log")
-
-# Check if the log file already exists; if not, create it
-if not os.path.exists(log_filename):
-    open(log_filename, 'w').close()
-
-# Configure logging
-logging.basicConfig(filename=log_filename, level=logging.INFO,
-                    format='%(asctime)s:%(levelname)s:%(message)s')
-
-# Commence Product Listing script logging
-currentDateTime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-logging.info(f"Script started at {currentDateTime}.")
-
-# Upload OPEN AI Variables
-try:
-    logging.info("Setting OpenAI Variables...")
-    import api_key_variable
-    #OpenAI Variable
-    openai.api_key = api_key_variable.API_KEY_VARIABLE
-    ORGANIZATION_ID = api_key_variable.ORGANIZATION_ID
-    PROJECT_ID = apy_key_variable.PROJECT_ID
-    Assistant_ID = api_key_variable.Assistant_ID
-    currentDateTime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    logging.info(f"Successfully set Open AI variables at {currentDateTime}")
-except Exception as e:
-    currentDateTime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    logging.error(f"Failed to set OpenAI variables at {currentDateTime}: {str(e)}")
-    raise
-"""do I need the following inserted in the above passage?"""
-url = https://api.openai.com/v1/assistants/{Assistant_ID} \
-
-headers = {
-    "Content-Type": "application/json",
-    "Authorization": f"Bearer {API_KEY_VARIABLE}",
-    "OpenAI-Beta": "assistants=v2",
-    "OpenAI-Organization": "{ORGANIZATION_ID}",
-    "OpenAI-Project": PROJECT_ID
-}
-
-response = requests.get(url, headers=headers)
-
-"""finish this to associate id with the assistant on open ai"""
-#RETRIEVE ASSISTANT 
-from openai import OpenAI
-client = OpenAI()
-
-my_assistant = client.beta.assistants.retrieve("asst_abc123")
-print(my_assistant)
-
-"""finish off checking on assistant by retrieving it's details at the start of the process"""
-# print to logs at start of work
-#RETRIEVE ASSISTANT 
-from openai import OpenAI
-client = OpenAI()
-
-my_assistant = client.beta.assistants.retrieve("{Assistant_ID}")
-print(my_assistant)
-
-
-
-
-"""# Load the products_catalog CSV file
-try:
-    logging.info("Loading the products_catalog CSV...")
-    df = pd.read_csv('products_catalog.csv', encoding='utf-8')
-    currentDateTime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    logging.info(f"Successfully loaded products_catalog CSV file at {currentDateTime}")
-except Exception as e:
-    currentDateTime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    logging.error(f"Failed to load products_catalog CSV file at {currentDateTime}: {str(e)}")
-    raise
-
-# Convert the products_catalog to JSON
-try:
-    logging.info("Converting products_catalog to JSON...")
-    json_output = df.to_json(orient='records', lines=True)
-    currentDateTime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    logging.info(f"Successfully converted products_catalog to JSON at {currentDateTime}")
-except Exception as e:
-    currentDateTime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    logging.error(f"Failed to convert products_catalog to JSON at {currentDateTime}: {str(e)}")
-    raise
-
-# Save the products_catalog to a JSON file
-try:
-    logging.info("Converting products_catalog to JSON...")
-    with open("/mnt/data/Product_Catalog.json", "w") as json_file:
-        json_file.write(json_output)
-        currentDateTime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        logging.info(f"Successfully saved products_catalog to JSON at {currentDateTime}")
-except Exception as e:
-    currentDateTime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    logging.error(f"Failed to save products_catalog to JSON at {currentDateTime}: {str(e)}")
-    raise"""
-
-# Load the SKU_checklist CSV file 
-try:
-    logging.info("Loading the SKU_Checklist CSV...")
-    df = pd.read_csv('SKU_Checklist.csv', encoding='utf-8')
-    currentDateTime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    logging.info(f"Successfully loaded SKU_Checklist CSV file at {currentDateTime}")
-except Exception as e:
-    currentDateTime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    logging.error(f"Failed to load SKU_Checklist CSV file at {currentDateTime}: {str(e)}")
-    raise
-
-# Convert SKU_checklist to JSON
-try:
-    logging.info("Converting SKU_Checklist to JSON...")
-    json_output = df.to_json(orient='records', lines=True)
-    currentDateTime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    logging.info(f"Successfully converted SKU_Checklist to JSON at {currentDateTime}")
-except Exception as e:
-    currentDateTime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    logging.error(f"Failed to convert SKU_Checklist to JSON at {currentDateTime}: {str(e)}")
-    raise
-
-# Save SKU_checklist to a JSON file
-try:
-    logging.info("Converting products_catalog to JSON...")
-    with open("/mnt/data/Product_Catalog.json", "w") as json_file:
-        json_file.write(json_output)
-        currentDateTime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        logging.info(f"Successfully saved products_catalog to JSON at {currentDateTime}")
-except Exception as e:
-    currentDateTime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    logging.error(f"Failed to save products_catalog to JSON at {currentDateTime}: {str(e)}")
-    raise
-
-# Upload JSON files to OpenAI Assistant
-Vector upload instructions
-
-
-"""
-# Create a vector store called "Financial Statements"
-vector_store = client.beta.vector_stores.create(name="Financial Statements")
- 
-# Ready the files for upload to OpenAI
-file_paths = ["edgar/goog-10k.pdf", "edgar/brka-10k.txt"]
-file_streams = [open(path, "rb") for path in file_paths]
-
-a sku library of products
-	added to OpenAI Assistant as context 
-	product_catalog
-        
-        #Create a vector store and add files;
-vector_store = client.beta.vector_stores.create(
-  name="Product Documentation",
-  file_ids=['file_1', 'file_2', 'file_3', 'file_4', 'file_5']
-)
-Adding files to vector stores is an async operation. To ensure the operation is complete, we recommend that you use the 'create and poll' helpers in our official SDKs. If you're not using the SDKs, you can retrieve the vector_store object and monitor it's file_counts property to see the result of the file ingestion operation.
-Files can also be added to a vector store after it's created by creating vector store files.
-
-#Attaching a vector store to your assistant 
-assistant = client.beta.assistants.create(
-  instructions="You are a helpful product support assistant and you answer questions based on the files provided to you.",
-  model="gpt-4o",
-  tools=[{"type": "file_search"}],
-  tool_resources={
-    "file_search": {
-      "vector_store_ids": ["vs_1"]
-    }
-  }
-)
-
-thread = client.beta.threads.create(
-  messages=[ { "role": "user", "content": "How do I cancel my subscription?"} ],
-  tool_resources={
-    "file_search": {
-      "vector_store_ids": ["vs_2"]
-    }
-  }
-)
-
-        
-        """
-#update the assistant to use new vector store 
-assistant = client.beta.assistants.update(
-  assistant_id=assistant.id,
-  tool_resources={"file_search": {"vector_store_ids": [vector_store.id]}},
-)
-
-
-
-
-
-# Create function for verifing if a product listing should be generated or not 
-"""python to check json"""
-
-
-# Load the CSV file containing product listings using the pandas module
-try:
-    logging.info("Loading the CSV with pandas module...")
-    df = pd.read_csv('Productlisting.csv', encoding='utf-8')
-    currentDateTime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    logging.info(f"Successfully loaded CSV file with {len(df)} products at {currentDateTime}")
-except Exception as e:
-    currentDateTime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    logging.error(f"Failed to load CSV file at {currentDateTime}: {str(e)}")
-    raise
-
-# Open the CSV file for reading and manipulating
-try:
-    logging.info("Opening the CSV for reading and writing...")
-    productListingFile = open("Productlisting.csv", mode="r+", encoding="utf-8")
-    next(productListingFile)
-    currentDateTime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    logging.info(f"Successfully opened CSV file at {currentDateTime}")
-except Exception as e:
-    currentDateTime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    logging.error(f"Failed to open CSV file at {currentDateTime}: {str(e)}")
-    raise
-
-
-
-# Get the total number of products in the DataFrame
-dfLength = len(df)
-count = 0
-
-# Function to get a chat completion from OpenAI
-def getChatCompletions(requestMessageContent):
-    try:
-        logging.info("Getting chat completion...")
-        responseName = openai.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[
-                {"role": "system", "content": marketingPersonality},
-                {"role": "user", "content": requestMessageContent}
-            ]
-        )
-        responseValue = responseName.choices[0].message.content
-        
-        # Log the time of the response
-        currentDateTime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        logging.info(f"Successfully received response from OpenAI at {currentDateTime}")	
-        return responseValue
-    except Exception as e:
-        # Log the error with the current time
-        currentDateTime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        logging.error(f"Failed to generate completion at {currentDateTime}: {str(e)}")
-        raise
-"""Relevant?
-#SETUP STREAM CHAT
-with client.beta.threads.runs.stream(
-  thread_id=thread.id,
-  assistant_id=assistant.id,
-  instructions="Please address the user as Jane Doe. The user has a premium account.",
-  event_handler=EventHandler(),
-) as stream:
-  stream.until_done()
-"""
-"""
-#CREATE A RUN 
-https://platform.openai.com/docs/api-reference/runs/createRun
-"""
-"""all vector stores from this point should be saved to the thread and logged
-#attach a file to a message thread instead
-# Upload the user provided file to OpenAI
-message_file = client.files.create(
-  file=open("edgar/aapl-10k.pdf", "rb"), purpose="assistants"
-)
- 
-# Create a thread and attach the file to the message
-thread = client.beta.threads.create(
-  messages=[
-    {
-      "role": "user",
-      "content": "How many shares of AAPL were outstanding at the end of of October 2023?",
-      # Attach the new file to the message.
-      "attachments": [
-        { "file_id": message_file.id, "tools": [{"type": "file_search"}] }
-      ],
-    }
-  ]
-)
- 
-# The thread now has a vector store with that file in its tool resources.
-print(thread.tool_resources.file_search)"""
-"""#Test file search is working properly: Your new assistant will query both attached vector stores (one containing goog-10k.pdf and brka-10k.txt, and the other containing aapl-10k.pdf) and return this result from aapl-10k.pdf
-# Use the create and poll SDK helper to create a run and poll the status of
-# the run until it's in a terminal state.
-
-run = client.beta.threads.runs.create_and_poll(
-    thread_id=thread.id, assistant_id=assistant.id
-)
-
-messages = list(client.beta.threads.messages.list(thread_id=thread.id, run_id=run.id))
-
-message_content = messages[0].content[0].text
-annotations = message_content.annotations
-citations = []
-for index, annotation in enumerate(annotations):
-    message_content.value = message_content.value.replace(annotation.text, f"[{index}]")
-    if file_citation := getattr(annotation, "file_citation", None):
-        cited_file = client.files.retrieve(file_citation.file_id)
-        citations.append(f"[{index}] {cited_file.filename}")
-
-print(message_content.value)
-print("\n".join(citations))
-
-"""
-
-# Loop through each row in the DataFrame to process product listings
-for index, product in enumerate(productListingFile.readlines()):
-    try:
-        logging.info("Looping the DataFrame...")
-        # Split up the rows into a list containing a different set of data for each column
-        product = product.split(",")
-        
-        # If statement to make sure the for loop runs between the number of rows in the file only
-        if count <= dfLength-1:
-            productSKU = product [0]
-            productType = product[1]
-            productName = product[3]
-            productPublished = product[4]
-            productFeatured = product[5]
-            productSDescription = product[7]
-            productLDescription = product[8]
-            productWeight = product[18]
-            productLength = product[19]
-            productWidth = product[20]
-            productHeight = product[21]
-            productReviews = product[22]
-            productPurchaseNote = product [23]
-            productPrice = product[25]
-            productCategories = product[26]
-            productTags = product[27]
-            productShippingClass = product[28]
-            productImages = product[29]
-            productUpsell = product[34]
-            productCross = product[35]
-            productAttributeOneName = product[39]
-            productAttributeOneDesc = product[40]
-            productAttributeTwoName = product[46]
-            productAttributeTwoDesc = product[47]
-            productAttributeThreeName = product[53]
-            productAttributeThreeDesc = product[54]
-            product = product[75]
-            
-            # Log success of processing for this product
-            currentDateTime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-            logging.info(f"Successfully processed product {index + 1}: {productName} at {currentDateTime}")
-        else:
-            currentDateTime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-            logging.warning(f"Product processing skipped {index + 1} due to index out of range at {currentDateTime}")
-    except Exception as e:
-        # Log any errors that occur during the processing of this product
-        currentDateTime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        logging.error(f"Failed to process product {index + 1} at {currentDateTime}: {str(e)}")
-        continue
-
-    count += 1  # Increment the count for the next iteration
-"""Modify the above with:
-#create a thread (that will run from variable to last variation for each SKU) then another new thread
-thread = client.beta.threads.create()
-
-thread should open with the first variable then close with the last variant offered (use productType)
-
-#add a message to the thread
-message = client.beta.threads.messages.create(
-  thread_id=thread.id,
-  role="user",
-  content="I need to solve the equation `3x + 11 = 14`. Can you help me?"
-)
-
-Next: Create a Run
-Once all the user Messages have been added to the Thread, you can Run the Thread with any Assistant. Creating a Run uses the model and tools associated with the Assistant to generate a response. These responses are added to the Thread as assistant Messages.
-
-#create a run
-run = client.beta.threads.runs.create_and_poll(
-  thread_id=thread.id,
-  assistant_id=assistant.id,
-  instructions="Please address the user as Jane Doe. The user has a premium account."
-)
-
-#list the messages
-if run.status == 'completed': 
-  messages = client.beta.threads.messages.list(
-    thread_id=thread.id
-  )
-  print(messages)
-else:
-  print(run.status)
-
-"""
-    # Generate a product name with specific formatting requirements, using the function
-    try:
-        logging.info("Generating product name...")
-        generatedProductNameMessage = f"""Write a unique title aimed at all pet owners but primarily appealing to ferret lovers.
-        \n The product name includes the product variant size or sizes available; S, M, and L denoting small, medium, and large and color or colors the item is in.
-        \n It also may include information regarding whether or not it is a single item or a set, return only the product name, the size, the color, and if it is a part of a set.
-        \n Mention set only if it is a part of a set, mention nothing regarding set or single piece otherwise.
-        \n {productName}"""
-        resultName = getChatCompletions(generatedProductNameMessage)
-        print(f"{resultName}\n\n")
-        currentDateTime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        logging.info(f"Successfully generated product name for {productName} at {currentDateTime}")
-    except Exception as e:
-        currentDateTime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        logging.error(f"Failed to generate product name for {productName} at {currentDateTime}: {str(e)}")
-        continue
-    
-    # Generate a short description for the product
-    try:
-        logging.info("Generating short description...")
-        responseProductSDescription = f"""Write a short marketing spiel for the product aimed at all pet owners but primarily appealing to ferret lovers.
-        \n This should only be 2 sentences long. The response should include only the 2 sentences requested.
-        \n {resultName}"""
-        resultProductSDescription = getChatCompletions(responseProductSDescription)
-        print(f"{resultProductSDescription}\n\n")
-        currentDateTime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        logging.info(f"Successfully generated short description for {productName} at {currentDateTime}")
-    except Exception as e:
-        currentDateTime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        logging.error(f"Failed to generate short description for {productName} at {currentDateTime}: {str(e)}")
-        continue
-
-    # Generate Product Categories
-    try:
-        logging.info("Generating product categories...")
-        
-        # Find a matching category from the category_map based on the product name
-        category_key = None
-        for key in category_map:
-            if key in productName.lower():  # Assuming productName contains the name of the product
-                category_key = key
-                break
-    
-        if category_key:
-            resultProductCategories = " > ".join(category_map[category_key])
-            currentDateTime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-            logging.info(f"Matched product '{productName}' with category '{resultProductCategories}' using key '{category_key}' at {currentDateTime}")
-        else:
-            responseProductCategories = f"""Use any and all relevant information to assess the appropriate product Categories. All products must have a For Ferrets or For Humans tag, as well as a primary Category. If the primary Category is as a sub-category, then all Categories from superior Categories must also be listed. For example, if product is a Leash, Categories must include Play & Train, Training Aids & Other Tools, Leashes, For Ferrets, or if product is Wall Decal, Categories should be Lifestyle, Homeware, Wall Decals, For Humans.
-            \n Output must then be formatted according to the Category Map. Return only in this format. No product description or long form text should be output.
-            \n {category_map}, {resultName}, {resultProductSDescription}, {productLDescription}, {productLength}, {productWidth}, {productHeight}, {productSize}, {productColors}, {productCategories}"""
-            resultProductCategories = getChatCompletions(responseProductCategories)
-            currentDateTime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-            logging.info(f"Generated product categories via OpenAI for {productName} at {currentDateTime}")
-            print(f"{resultProductCategories}\n\n")
-            currentDateTime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-            logging.info(f"Successfully generated product categories for {productName} at {currentDateTime}")
-    except Exception as e:
-        currentDateTime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        logging.error(f"Failed to generate product categories for {productName} at {currentDateTime}: {str(e)}")
-        continue
-    
-    # Generate Product Tags
-    try:
-        logging.info("Generating product tags...")
-        responseProductTags = f"""Use any and all relevant information to assess the appropriate product Tags. All products must have a For Ferrets or For Humans tag, as well as all relevant additional tags. There is no tag hierarchy or limit on number of tags a product can have, however if a tag matches a category from the Category_Map then the tag output must include at a minimum all listed categories as comma separated tags e.g. "leash": "For Ferrets", "Play & Train", "Training Aids & Others Tools", 'Leashes". All tags should be output as a csv string.
-        \n This is the list of available tags: About, Access Steps, Adventure, Apparel & Accessories, Art Prints, Bedding & Blankets, Behavior & Welfare, behavior and welfare, Books & Others Resources, Bracelets, Bundles, Kits and Gift Baskets, Cage, Cage Rage, Cages, Calendars, Carry Cases & Bags, Clickers, Collars, Common Diseases, Comparative Medicine & Biomedical Research, Conservation & Ecology, Costumes, Cushions & Bedding, Custom Ferret Portrait, Diaries & Notebooks, Digital Devices, Digital Monitoring Devices, Diseases & Health Issues, DIY, Earrings, Essentials, Ferret Costumes, Ferret Lifespan Research Project, Ferret Treats, FLRP, Food, Food & Water Bowls, For Ferrets, For Humans, Genetics & Breeding, GPS Trackers, Grooming, Grooming Tools, Hair Pieces, Harnesses, History, Home & Personal Items, Hoodies, Keychains, Kibble Diet, Learn, Leashes, Lifestyle, Litter Trays, Meat, Necklaces, Nutrition, Onesies, Pens, Phone Cases, Plates & Mugs, Play & Train, Play Pens, Policy, Raw, Raw Diet, Raw Food, Raw Meat Diet, Rings, Socks, Stationary, Stickers, Subscription Services, T-Shirts, Toys, Training Aids and Other Tools, Treats, Veterinary Medicine, Veterinary Medicine & Animal Health, Wall Decals, Workshops & Other Courses, Uncategorised.
-        \n {category_map}, {resultName}, {resultProductSDescription}, {productLDescription}, {productLength}, {productWidth}, {productHeight}, {productSize}, {productColors}, {productCategories}"""
-        resultProductTags = getChatCompletions(responseProductTags)
-        currentDateTime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        logging.info(f"Generated product tags via OpenAI for {productName}")
-        print(f"{resultProductTags}\n\n")		    
-        currentDateTime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        logging.info(f"Successfully generated product tags for {productName} at {currentDateTime}")
-    except Exception as e:
-        currentDateTime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        logging.error(f"Failed to generate product tags for {productName} at {currentDateTime}: {str(e)}")
-        continue
-    
-    # Generate Attributes
-    try: 
-        logging.info("Generating attributes...")
-    
-        # Gather existing data from the product fields
-        existing_data = {
-            "AttributeOneName": productAttributeOneName,
-            "AttributeOneDesc": productAttributeOneDesc,
-            "AttributeTwoName": productAttributeTwoName,
-            "AttributeTwoDesc": productAttributeTwoDesc,
-            "AttributeThreeName": productAttributeThreeName,
-            "AttributeThreeDesc": productAttributeThreeDesc,
-        }
-    
-        # Craft a message to OpenAI
-        responseProductAttributes = f"""Use any and all relevant information to assess the 3 most relevant and useful product attributes from the available attributes shown in the attributes_map and/or based on best assessment of the product.
-        There may be information already present in the field. You are not to erase or replace this data; you are only allowed to fill in the empty attribute fields available. You are to choose the 3 best attributes available to represent the item.
-        You will be given any existing information and must include it in the output you create.
-        \nExisting data: {existing_data}
-        \nProduct Information: {resultName}, {resultProductSDescription}, {ProductLDescription}, {resultProductLength}, {resultProductWidth}, {resultProductHeight}, {resultProductSize}, {resultProductWeight}, {resultProductCategories}"""
-    
-        # Get AI response
-        resultProductAttributes = getChatCompletions(responseProductAttributes)
-    
-        # Assign the AI-generated attributes to the relevant fields
-        productAttributeOneName = resultAttributes.get("AttributeOneName", productAttributeOneName)
-        productAttributeOneDesc = resultAttributes.get("AttributeOneDesc", productAttributeOneDesc)
-        productAttributeTwoName = resultAttributes.get("AttributeTwoName", productAttributeTwoName)
-        productAttributeTwoDesc = resultAttributes.get("AttributeTwoDesc", productAttributeTwoDesc)
-        productAttributeThreeName = resultAttributes.get("AttributeThreeName", productAttributeThreeName)
-        productAttributeThreeDesc = resultAttributes.get("AttributeThreeDesc", productAttributeThreeDesc)
-    
-        # Log the success of attribute generation
-        currentDateTime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        logging.info(f"Successfully generated attributes for {productName} at {currentDateTime}")
-    
-        # Log the recommended updates to the attributes_map
-        for key, value in resultAttributes.items():
-            if key not in attributes_map or value not in attributes_map.get(key, []):
-                logging.info(f"Recommended Attribute_Map Update: {key} = {value}")
-                
-    except Exception as e:
-        currentDateTime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        logging.error(f"Failed to generate attributes for {productName} at {currentDateTime}: {str(e)}")
-        continue
-
-    # Function to find Upsell Products
-    try:
-        logging.info("Generating Upsell opportunities...")
-        responseProductUpsell = f"""Choose 2-4 products from The Dookery's product catalog to Upsell (this function identifies complementary products within a similar price range). 
-        \n Use the Complementary_Map to determine which product categories to choose products from.
-        \n Then use the product catalog to find products with the selected categories with a price point between 0.8 * price, and 1.5 * price and list them.
-        \n Then sort the identified products list by Popularity and Reviews.
-        \n Where there is no useful information to determine an outcome, use your own logic to select appropriate complementary Upsell products from the product catalog.
-        \n Choose the top 2-4 products to output. The response should include product SKU only, output in comma-separated string form.
-	\n {product_catalog}, {complementary_map}, {resultName}, {resultProductSDescription}, {productCategories}, {productPrice}, """
-	
-        # Get the completion from OpenAI
-        resultProductUpsell = getChatCompletions(responseProductUpsell)
-        
-        # Log the successful generation
-        currentDateTime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        logging.info(f"Generated Upsell via OpenAI for {productName} at {currentDateTime}")
-        print(f"{resultProductUpsell}\n\n")
-        
-    except Exception as e:
-        # Log any errors
-        currentDateTime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        logging.error(f"Failed to generate product upsell for {productName} at {currentDateTime}: {str(e)}")
-        continue
-    
-    # Function to find Cross-Sell Products
-    try:
-        logging.info("Generating CrossSell opportunities...")
-        responseProductCross = f"""Choose 2-4 products from The Dookery's product catalog to Cross-Sell (this function identifies complementary products lower in price).
-        \n Use the Complementary_Map to determine which product categories to choose products from.
-        \n Then use the product catalog to find products with the selected categories with a price point between 0.8 * price, and 1.5 * price and list them.
-        \n Then sort the identified products list by Popularity and Reviews.
-        \n Where there is no useful information to determine an outcome, use your own logic to select appropriate complementary Cross-Sell products from the product catalog.
-        \n Choose the top 2-4 products to output. The response should include product SKU only, output in comma-separated string form."""
-        
-        # Get the completion from OpenAI
-        resultProductCross = getChatCompletions(responseProductCross)
-        
-        # Log the successful generation
-        currentDateTime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        logging.info(f"Generated Cross-Sell via OpenAI for {productName} at {currentDateTime}")
-        print(f"{resultProductCross}\n\n")
-        
-    except Exception as e:
-        # Log any errors
-        currentDateTime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        logging.error(f"Failed to generate product cross sell for {productName} at {currentDateTime}: {str(e)}")
-        continue
-    
-# Confirm or find Height
-def find_or_confirm_height(productHeight, productLDescription, productAttributes, productName):
-    try:
-        logging.info("Assessing height...")
-        
-        # Check if height is already present
-        if pd.notnull(productHeight) and productHeight > 0:
-            logging.info("Height is already present in the CSV.")
-            return productHeight
-        else:
-            logging.info("Height not present, querying OpenAI for height assessment...")
-
-            # OpenAI query to determine the height from description and attributes
-            responseProductHeight = f"""Determine the height of the product from the following details:
-            \n Description: {productLDescription}
-            \n Attributes: {productAttributes}
-            \n Provide only the height value in cm or inches. Ensure height is specific to the product variant contained in the product listing. Return in string format."""
-            
-            # Get the response from OpenAI
-            resultProductHeight = getChatCompletions(responseProductHeight)       
-    
-            # Log the successful generation
-            currentDateTime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-            logging.info(f"Generated Height via OpenAI for {productName} at {currentDateTime}")
-            print(f"Height for {productName}: {resultProductHeight}\n")
-            
-            return resultProductHeight
-    
-    except Exception as e:
-        # Log any errors
-        currentDateTime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        logging.error(f"Failed to find or confirm height for {productName} at {currentDateTime}: {str(e)}")
-        return None
-
-# Confirm or find Length
-def find_or_confirm_length(productLength, productLDescription, productAttributes, productName):
-    try:
-        logging.info("Assessing length...")
-        
-        # Check if length is already present
-        if pd.notnull(productLength) and productLength > 0:
-            logging.info("Length is already present in the CSV.")
-            return productLength
-        else:
-            logging.info("Length not present, querying OpenAI for length assessment...")
-
-            # OpenAI query to determine the length from description and attributes
-            responseProductLength = f"""Determine the length of the product from the following details:
-            \n Description: {productLDescription}
-            \n Attributes: {productAttributes}
-            \n Provide only the length value in cm or inches. Ensure length is specific to the product variant contained in the product listing. Return in string format."""
-            
-            # Get the response from OpenAI
-            resultProductLength = getChatCompletions(responseProductLength)       
-    
-            # Log the successful generation
-            currentDateTime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-            logging.info(f"Generated Length via OpenAI for {productName} at {currentDateTime}")
-            print(f"Length for {productName}: {resultProductLength}\n")
-            
-            return resultProductLength 
-    
-    except Exception as e:
-        # Log any errors
-        currentDateTime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        logging.error(f"Failed to find or confirm length for {productName} at {currentDateTime}: {str(e)}")
-        return None    
-
-# Confirm or find Width
-def find_or_confirm_width(productWidth, productLDescription, productAttributes, productName):
-    try:
-        logging.info("Assessing width...")
-        
-        # Check if width is already present
-        if pd.notnull(productWidth) and productWidth > 0:
-            logging.info("Width is already present in the CSV.")
-            return productWidth
-        else:
-            logging.info("Width not present, querying OpenAI for width assessment...")
-
-            # OpenAI query to determine the width from description and attributes
-            responseProductWidth = f"""Determine the width of the product from the following details:
-            \n Description: {productLDescription}
-            \n Attributes: {productAttributes}
-            \n Provide only the width value in cm or inches. Ensure width is specific to the product variant contained in the product listing. Return in string format."""
-            
-            # Get the response from OpenAI
-            resultProductWidth = getChatCompletions(responseProductWidth)       
-    
-            # Log the successful generation
-            currentDateTime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-            logging.info(f"Generated Width via OpenAI for {productName} at {currentDateTime}")
-            print(f"Width for {productName}: {resultProductWidth}\n")
-            
-            return resultProductWidth 
-    
-    except Exception as e:
-        # Log any errors
-        currentDateTime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        logging.error(f"Failed to find or confirm width for {productName} at {currentDateTime}: {str(e)}")
-        return None
-    
-# Confirm or find Weight
-def find_or_confirm_weight(productWeight, productLDescription, productAttributes, productName):
-    try:
-        logging.info("Assessing weight...")
-        
-        # Check if weight is already present
-        if pd.notnull(productWeight) and productWeight > 0:
-            logging.info("Weight is already present in the CSV.")
-            return productWeight
-        else:
-            logging.info("Weight not present, querying OpenAI for weight assessment...")
-
-            # OpenAI query to determine the weight from description and attributes
-            responseProductWeight = f"""Determine the weight of the product from the following details:
-            \n Description: {productLDescription}
-            \n Attributes: {productAttributes}
-            \n Dimensions: {productHeight}, {ProductLength}, {ProductWidth}
-            \n If weight metric is otherwise unavailable, determine approximate weight by calculating objects volume. If this path is taken, weight MUST be marked '"approx."
-            \n Provide only the weight value in grams or kilograms. Ensure weight is specific to the product variant contained in the product listing. Return in string format."""
-            
-            # Get the response from OpenAI
-            resultProductWeight = getChatCompletions(responseProductWeight)
-    
-            # Log the successful generation
-            currentDateTime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-            logging.info(f"Generated Weight via OpenAI for {productName} at {currentDateTime}")
-            print(f"Weight for {productName}: {resultProductWeight}\n")
-            
-            return resultProductWeight
-    
-    except Exception as e:
-        # Log any errors
-        currentDateTime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        logging.error(f"Failed to find or confirm weight for {productName} at {currentDateTime}: {str(e)}")
-        return None
- 
-    # Generate Shipping Class
-    """width, length, height, weight
-    need a postage matrix
-    
-   # Function to classify product based on weight and dimensions
-def classify_product(weight, length, width, height):
-    try:
-        logging.info("Classifying shipping class based on weight and dimensions...")
-
-        # Calculate total dimension (sum of all dimensions)
-        total_dimension = length + width + height
-
-        # Calculate volume for additional considerations (assuming cubic cm)
-        volume = length * width * height
-
-        # Define classification logic
-        if weight <= 0.5 and total_dimension <= 60:
-            shipping_class = "Light"
-        elif (0.5 < weight <= 5) or (60 < total_dimension <= 150):
-            shipping_class = "Medium"
-        elif volume > 100000 or any(dim > 100 for dim in [length, width, height]):
-            # Assuming that any dimension over 100 cm or a volume over 100,000 cubic cm makes the product oversized
-            shipping_class = "Oversized"
-        else:
-            shipping_class = "Heavy"
-
-        logging.info(f"Product classified as: {shipping_class}")
-        return shipping_class
-    
-    except Exception as e:
-        logging.error(f"Failed to classify product shipping class: {str(e)}")
-        return None
-
-# Example usage within your product processing loop
-for index, row in df.iterrows():
-    try:
-        productName = row['Product Name']
-        productWeight = row['Weight']
-        productLength = row['Length']
-        productWidth = row['Width']
-        productHeight = row['Height']
-
-        logging.info(f"Processing shipping class for product {index + 1}: {productName}")
-
-        # Confirm or find the dimensions and weight
-        confirmed_weight = find_or_confirm_weight(productWeight, row['Product Description'], row['Product Attributes'], productName)
-        confirmed_length = find_or_confirm_length(productLength, row['Product Description'], row['Product Attributes'], productName)
-        confirmed_width = find_or_confirm_width(productWidth, row['Product Description'], row['Product Attributes'], productName)
-        confirmed_height = find_or_confirm_height(productHeight, row['Product Description'], row['Product Attributes'], productName)
-
-        # Classify the shipping class
-        shipping_class = classify_product(confirmed_weight, confirmed_length, confirmed_width, confirmed_height)
-        df.at[index, 'Shipping Class'] = shipping_class
-        logging.info(f"Shipping class updated for product {productName}: {shipping_class}")
-        
-    except Exception as e:
-        logging.error(f"Failed to process shipping class for product {index + 1}: {str(e)}")
-        continue
-
-# Save the updated DataFrame back to the CSV
-try:
-    df.to_csv('Productlisting_updated.csv', index=False, encoding='utf-8')
-    logging.info("Updated CSV file with shipping classes saved successfully.")
-except Exception as e:
-    logging.error(f"Failed to save the updated CSV file with shipping classes: {str(e)}")
-    """
-    
-    
-    # Generate a detailed long description for the product
-    try:
-        logging.info("Generating long description...")
-        if productType == "variable":
-            responseProductLDescription = f"""You are going to be given a product name, product short description, product long description, product length, product width, product height, product weight, product shipping class, product attributes (size, color, style, capacity, specification), product categories and product tags for context.
-            \n Use any and all relevant information to create a detailed and organised product listing for The Dookery's website.
-            \n The listing should include the following 3 components: Introduction, Specifications, and The Dookery's Tips & Tricks for Ferret Lovers.
-            \n Introduction component must include the following:
-            \n A catchy descriptive title that clearly identifies the product and its primary benefits.
-            \n A compelling opening sentence that highlights the key features and benefits of the product for any animal owner or animal lover that utilises friendly and engaging language to draw in the reader and focuses on how the product can improve the lives of animals and/or their owners.
-            \n An engaging paragraph that introduces the product, mentioning its primary purpose/s and essential qualities, intended use, how the product enhances the target audience's experience, and overall benefits, emphasizing convenience, style, and any unique features that set the product apart.
-            \n A paragraph outlining general product information including details of all variations and specifications listed (e.g. size, color, etc), placing emphasis on matching product specific details to the usability of the product for all pet owners in particular ferret owners and lovers, offering a list of common animals the product is appropriate (must include ferrets) and inappropriate for, and how many animals the product is appropriate for (e.g. 1 dog, 3 ferrets, 1 human).
-            \n Specifications component must include the following: Product Name, Suitable Animals, Material/s, Dimensions (Length x Width x Height), Weight, Features, Product Safety Warnings, and any other Notable Features (Color, Size, Style, Capacity). Present Specifications as a uniform and formatted grid/table. Every row and column should be of the same length, width and height.
-            \n The Dookery's Tips & Tricks for Ferret Lovers component must include the following:
-            \n Component header.
-            \n Practical advice on how to effectively utilize the product with a ferret/s to achieve optimal usage (if the product is For Ferrets), or for optimal usage for a human (if the product is For Humans). This can include tips on color selection, placement, maintenance, cleaning, integration with other products, and integration into existing setups.
-            \n Product Pros: a bulletpoint list of honest product Pros (advantages) for a ferret or ferret owner listing the primary advantages of the product as well as highlighting aspects like durability, design, ease of use, functionality, and any unique features that make the product stand out.
-            \n Product Cons: a bulletpoint list of honest but balanced product Cons (disadvantages) for a ferret or ferret owner listing any potential drawbacks or considerations to keep in mind and mentioning aspects like maintenance requirements or size constraints that customers should be aware of before purchasing.
-            \n Product Use Warnings: a brief section outlining all recommendations for safe and effective use of the product for a ferret owner or ferret lover, including precautions or warnings specific to each variant, handling instructions, cleaning advice, placement advice, safe handling, and guidance on how to perform maintenance checks to ensure the product remains safe and functional in order to provide a safe environment for your ferrets.
-            \n Lastly a wrap up paragraph with an encouraging statement that reinforces the product's value and why it's a smart and essential addition to the customers household and their ferret's environment.
-            \n Preserve all image data given to you in the Description field and insert it into the output created. Do not remove any image data from the product Description. Use data from productImages field for context in creating description.
-            \n Apply the following html standards to output created: Wrap each section in <p> tags for proper paragraph separation, Use <b> tags for headings or important text, Implement lists with <ul> and <li> tags when listing multiple items, Embed images using <img> tags with appropriate src and style attributes, Use <br> tags for line breaks within paragraphs where needed, Nest elements appropriately to maintain clean structure and readability, Use non-breaking spaces to control spacing and formatting where needed, Use HTML tags consistently.
-            \n Return in string form.
-            \n {productImages}, {resultName}, {resultProductSDescription}, {productLDescription}, {productLength}, {productWidth}, {productHeight}, {productSize}, {productColors}, {productCategories}"""
-            resultProductLDescription = getChatCompletions(responseProductLDescription)
-            print(f"{resultProductLDescription}\n\n")
-            currentDateTime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-            
-            # Update LDescription variable and log
-            df.loc[count, 'Description'] = resultProductLDescription
-            currentDateTime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-            logging.info(f"Successfully generated new long description for {productName} at {currentDateTime}")
-        else:
-            # Existing variable retained for variant listings and logged
-            df.loc[count, 'Description'] = resultProductLDescription
-            currentDateTime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-            logging.info(f"Successfully saved existing long description for {productName} at {currentDateTime}")
-    except Exception as e:
-        # Log errors
-        currentDateTime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        logging.error(f"Failed to generate long description for {productName} at {currentDateTime}: {str(e)}")
-        continue
-
-
-
-
-
-
-
-    # Write a Purchase Note
-    try:
-        logging.info("Updating purchase note...")
-        responsePurchaseNote = f"""Craft a Purchase Note for the buyer of this product. 
-        The Purchase Note can be used for various purposes, such as providing additional information about the product, offering instructions for using the product, sharing a thank you message or a link to download digital products, and giving details about how the customer can contact The Dookery for support or further inquiries (by email admin@dookery.com). If the product includes special instructions, download links, or personalized messages that should be conveyed to the buyer post-purchase, the Purchase Note field is a convenient place to include that information. 
-        You need to apply a rational mind and be sparse in what information you offer here. It needs to be specific to the exact variant being purchased. A customer may purchase multiple items and does not need to see identical thank you messages after every purchase. If you have nothing useful to add here, leave this field blank.
-        \nProduct Name: {resultName}\nShort Description: {resultProductSDescription}\nLong Description: {resultProductLDescription}"""
-        resultPurchaseNote = getChatCompletions(responsePurchaseNote)
-    
-        # Log the success of OpenAI completion
-        print(f"{resultPurchaseNote}\n\n")     
-        currentDateTime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        logging.info(f"Successfully generated Purchase Note via OpenAI for {productName} at {currentDateTime}")
-    except Exception as e:
-        # Log the failure in generating the Purchase Note
-        currentDateTime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        logging.error(f"Failed to generate Purchase Note for {productName} at {currentDateTime}: {str(e)}")
-        continue
-
-    # Enable customer reviews for the product
-    try:
-        logging.info("Enabling customer reviews...")
-        # Assuming you want to set a flag in the DataFrame to enable reviews
-        resultProductReviews = 1  # This value indicates that reviews are enabled
-        print(f"Customer reviews enabled: {resultProductReviews}\n\n-----\n\n")
-        currentDateTime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        logging.info(f"Successfully enabled customer reviews for {productName} at {currentDateTime}")
-    except Exception as e:
-        # Log any errors that occur
-        currentDateTime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        logging.error(f"Failed to enable customer reviews for {productName} at {currentDateTime}: {str(e)}")
-        continue
-
-    # Update published status for the product
-    try:
-        logging.info("Updating published state...")
-        resultProductPublished = 1
-        print(f"{resultProductPublished}\n\n-----\n\n")
-        currentDateTime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        logging.info(f"Successfully updating published status for {productName} at {currentDateTime}")
-    except Exception as e:
-        # Log errors
-        currentDateTime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        logging.error(f"Failed to update published status for {productName} at {currentDateTime}: {str(e)}")
-        continue
-
-# Image Functions
-"""
-#Editing image files
-https://platform.openai.com/docs/api-reference/authentication
-
-#upload image files
-https://platform.openai.com/docs/api-reference/files/create\
-
-Marketing image manipulation (maybe through modular mind?): back ground removal, ferret themed, drm
-	Index your existing ferret media library and create logs of existing usage
-
-
-"""
-
-
-
-
-
-
-"""#List messages in the thread
-get https://api.openai.com/v1/threads/{thread_id}/messages
-
-Returns a list of messages for a given thread.
-
-from openai import OpenAI
-client = OpenAI()
-
-thread_messages = client.beta.threads.messages.list("thread_abc123")
-print(thread_messages.data)
-
-
-"""
-
-# Generate Suggested Price Point 
-Add profit to price
-
-# Generate Price Point Feedback
-Will a customer come to you over someone else for this reason?
-Could the price be adjusted upwards while remaining competitive? 
-If the product doesnt compete on price point, can you offer other benefits?
-
-# Generate Market Competitiveness 
-How do Pet Barn, Pet Circle, Ebay, Amazon, etc compare.
-
-# Generate Direct Marketing Plan
-who (potentially could be appealed to and how), 
-the lifestyle side makes the dookery different so lean in
-how will purchasing this product encourage customer loyalty 
-consider what do ferret owners do and how can this product be marketed to them alternatively? how can I access these people with this product?
-
-# Listing Review
-Evaluate listing for flaws and potential fixes, make recomendations 
-
-# Generate Learn Marketing 
-Blog and social media ideas, suggesting existing articles to attach the product to
-
-# Generate philanthropy
-opportunties to enhance ferret lifespan or the FLRP through the product; how does or can this product help?
-
-# Generate General Marketing Plan
-tips, tricks, insights based on market research
-
-# Generate legal: Evaluate for professional indemnity, product design or application risks, as well as potential postal issues due to the nature of the product (e.g. places it can't be imported, etc)
-
-# Generate featured products
-"""Featured: if product is good value (variable) 
-				feature it
-		Value = price is close or below RRP for the same or similar products with reasonably similar features (library of products and 				reference web search through open AI 
-		and/or 
-		Value = There is no other items with these features on the market (unique) (web search through open AI)"""
-
-
-
-
-
-    # Update the DataFrame with the generated content
-    try:
-        logging.info("Updating data frame...")
-        df.loc[count, 'Name'] = resultName
-        df.loc[count, 'Short description'] = resultProductSDescription
-        df.loc[count, 'Categories'] = resultProductCategories
-        df.loc[count, 'Tags'] = resultProductTags
-        df.loc[count, 'Upsell'] = resultProductUpsell
-        df.loc[count, 'Cross'] = resultProductCross
-        df.loc[count, 'Height'] = resultProductHeight
-        df.loc[count, 'Length'] = resultProductLength
-        df.loc[count, 'Width'] = resultProductWidth
-        df.loc[count, 'Weight'] = resultProductWeight
-        df.loc[count, 'Description'] = resultProductLDescription
-        df.loc[count, 'Attribute One Name'] = resultproductAttributeOneName
-        df.loc[count, 'Attribute One Description'] = resultproductAttributeOneDesc
-        df.loc[count, 'Attribute Two Name'] = resultproductAttributeOneName
-        df.loc[count, 'Attribute Two Description'] = resultproductAttributeOneDesc
-        df.loc[count, 'Attribute Three Name'] = resultproductAttributeOneName
-        df.loc[count, 'Attribute Three Description'] = resultproductAttributeOneDesc
-        df.loc[count, 'Purchase Note'] = resultPurchaseNote
-        df.loc[count, 'Reviews Enabled'] = resultProductReviews
-        df.loc[count, 'Published'] = resultProductPublished
-
-        currentDateTime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        logging.info(f"Successfully updated DataFrame at {currentDateTime}")
-    except Exception as e:
-        currentDateTime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        logging.error(f"Failed to update DataFrame at {currentDateTime}: {str(e)}")
-        continue
-
-    # Save the updated DataFrame to the open CSV file
-    try:
-        logging.info("Updating CSV file...")        
-        df.to_csv("Productlisting.csv", index=False)
-        currentDateTime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        logging.info(f"Successfully saved CSV at {currentDateTime}")
-    except Exception as e:
-        currentDateTime = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        logging.error(f"Failed to save CSV at {currentDateTime}: {str(e)}")
-        continue	    
-
-# End Logging
-logging.info("Script complete.")
